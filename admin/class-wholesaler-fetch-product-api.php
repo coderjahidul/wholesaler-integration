@@ -134,7 +134,7 @@ function wholesaler_fetch_aren_product_api() {
 function insert_product_js_api_to_database() {
     global $wpdb;
 
-    $table_name = $wpdb->prefix . 'wholesaler_products_data';
+    $table_name = $wpdb->prefix . 'sync_js_wholesaler_products_data';
     $api_response = wholesaler_fetch_js_product_api();
 
     // Convert XML → array
@@ -160,59 +160,35 @@ function insert_product_js_api_to_database() {
     }
 
     foreach ($product_list['articles']['article'] as $article) {
-        // Basic info
-        $product_data = $article;
-        $sku   = $article['@attributes']['sku'];
+        // SKU is in _sku, not article['sku']
+        $sku   = $article['sku'] ?? null;
         $brand = $article['brand']['name'] ?? null;
-        $price = $article['price'] ?? 0;
 
-        // Skip if brand is not in the allowed list
-        if (!in_array($brand, $brands_upper)){
+        // Store full product JSON
+        $product_data = json_encode($article, JSON_UNESCAPED_UNICODE);
+
+        // brand not allowed
+        if (!in_array($brand, $brands_upper)) {
             continue;
         }
 
-        // Loop through units
-        if (isset($article['units']['unit'])) {
-            $units = $article['units']['unit'];
+        // Insert or update by SKU
+        $sql = $wpdb->prepare(
+            "INSERT INTO $table_name (sku, brand, product_data, status, created_at, updated_at)
+            VALUES (%s, %s, %s, 'Pending', NOW(), NOW())
+            ON DUPLICATE KEY UPDATE 
+                brand = VALUES(brand),
+                product_data = VALUES(product_data),
+                status = 'Pending',
+                updated_at = NOW()",
+            $sku, $brand, $product_data
+        );
 
-            // Normalize: if single unit, wrap into array
-            if (isset($units['@attributes'])) {
-                $units = [$units];
-            }
-
-            foreach ($units as $unit) {
-                $stock = $unit['stock'] ?? 0;
-
-                // Prepare attributes JSON (simplified product data)
-                $attributes = [
-                    'color'       => $unit['color'] ?? null,
-                    'color_basic' => $unit['color_basic'] ?? null,
-                    'size'        => $unit['size'] ?? null,
-                    'ean'         => $unit['@attributes']['ean'] ?? null,
-                ];
-
-                // Insert full row
-                $wpdb->insert(
-                    $table_name,
-                    [
-                        'wholesaler_name' => 'JS',
-                        'sku'             => $unit['@attributes']['sku'] ?? $sku,
-                        'wholesale_price' => $price,
-                        'stock'           => $stock,
-                        'brand'           => $brand,
-                        'attributes'      => wp_json_encode($attributes),
-                        'product_data'    => wp_json_encode($product_data), // product_data
-                        'last_synced'     => current_time('mysql'),
-                    ],
-                    [
-                        '%s','%s','%f','%d','%s','%s','%s','%s'
-                    ]
-                );
-            }
-        }
+        $wpdb->query($sql);
     }
-
 }
+
+
 
 // insert product mada api to database
 function insert_product_mada_api_to_database() {

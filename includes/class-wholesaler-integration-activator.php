@@ -30,30 +30,24 @@ class Wholesaler_Integration_Activator {
 	 * @since    1.0.0
 	 */
 	public static function activate() {
-		// create table on activation
 		global $wpdb;
 
-		$table_name = $wpdb->prefix . 'wholesaler_products_data';
+		$table_name = $wpdb->prefix . 'sync_js_wholesaler_products_data';
 		$charset_collate = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE $table_name (
 			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-			wholesaler_name VARCHAR(50) NOT NULL,
-			sku VARCHAR(100) NOT NULL,
-			wholesale_price DECIMAL(10,2) NOT NULL,
-			stock INT(11) NOT NULL DEFAULT 0,
+			sku VARCHAR(100) UNIQUE NOT NULL,
 			brand VARCHAR(100) DEFAULT NULL,
-			attributes JSON DEFAULT NULL,
-			product_data JSON DEFAULT NULL,
-			last_synced DATETIME DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (id),
-			KEY sku (sku),
-			KEY wholesaler_name (wholesaler_name)
+			product_data JSON NULL,
+			status VARCHAR(12) NOT NULL DEFAULT 'Pending',
+			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+			PRIMARY KEY (id)
 		) $charset_collate;";
 
-		require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
-		dbDelta( $sql );
-
+		require_once(ABSPATH . 'wp-admin/includes/upgrade.php');
+		dbDelta($sql);
 	}
 
 }
