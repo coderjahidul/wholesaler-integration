@@ -134,15 +134,25 @@ function wholesaler_fetch_aren_product_api() {
 function insert_product_js_api_to_database() {
     global $wpdb;
 
-    $table_name = $wpdb->prefix . 'sync_js_wholesaler_products_data';
+    $table_name   = $wpdb->prefix . 'sync_js_wholesaler_products_data';
     $api_response = wholesaler_fetch_js_product_api();
 
-    // Convert XML → array
-    $xml  = simplexml_load_string($api_response);
-    $json = json_encode($xml);
-    $product_list = json_decode($json, true);
+    if (empty($api_response)) {
+        put_program_logs("Empty API response");
+        return;
+    }
 
-    // Allowed brands
+    // Convert XML → array
+    $products_array = @simplexml_load_string($api_response);
+    if (!$products_array) {
+        put_program_logs("Invalid XML in API response");
+        return;
+    }
+
+    $products_json = json_encode($products_array);
+    $product_list = json_decode($products_json, true);
+
+    // Allowed brands (case insensitive)
     $brands = [
         "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
         "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
@@ -151,42 +161,51 @@ function insert_product_js_api_to_database() {
         "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
         "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
     ];
-    // Convert all brands to lowercase for comparison
-    $brands_upper = array_map('strtoupper', $brands);
+    $brands_upper = array_map(fn($brand) => strtoupper($brand), $brands);
 
-    if (!isset($product_list['articles']['article'])) {
-        put_program_logs("No products found in API response");
-        return;
+    $articles = $product_list['articles'];
+
+    // Normalize in case it's a single article
+    if (isset($articles['sku'])) {
+        $articles = [$articles];
     }
 
-    foreach ($product_list['articles']['article'] as $article) {
-        // SKU is in _sku, not article['sku']
-        $sku   = $article['sku'] ?? null;
+    foreach ($articles as $article) {
+        $sku   = $article['_sku'] ?? null;
         $brand = $article['brand']['name'] ?? null;
+
+        if (empty($sku) || empty($brand)) {
+            continue;
+        }
+
+        put_program_logs("Inserting product with SKU: " . $sku );
+
+        // Normalize brand for comparison
+        $brand_upper = strtoupper($brand);
+
+        if (!in_array($brand_upper, $brands_upper)) {
+            continue;
+        }
 
         // Store full product JSON
         $product_data = json_encode($article, JSON_UNESCAPED_UNICODE);
 
-        // brand not allowed
-        if (!in_array($brand, $brands_upper)) {
-            continue;
-        }
-
-        // Insert or update by SKU
+        // Insert new or update if SKU exists
         $sql = $wpdb->prepare(
             "INSERT INTO $table_name (sku, brand, product_data, status, created_at, updated_at)
-            VALUES (%s, %s, %s, 'Pending', NOW(), NOW())
-            ON DUPLICATE KEY UPDATE 
-                brand = VALUES(brand),
-                product_data = VALUES(product_data),
-                status = 'Pending',
-                updated_at = NOW()",
+             VALUES (%s, %s, %s, 'Pending', NOW(), NOW())
+             ON DUPLICATE KEY UPDATE 
+                 brand = VALUES(brand),
+                 product_data = VALUES(product_data),
+                 status = 'Pending',
+                 updated_at = NOW()",
             $sku, $brand, $product_data
         );
 
         $wpdb->query($sql);
     }
 }
+
 
 
 
