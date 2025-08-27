@@ -134,7 +134,7 @@ function wholesaler_fetch_aren_product_api() {
 function insert_product_js_api_to_database() {
     global $wpdb;
 
-    $table_name = $wpdb->prefix . 'sync_js_wholesaler_products_data';
+    $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
     $api_response = wholesaler_fetch_js_product_api();
 
     // Convert XML → array
@@ -143,14 +143,17 @@ function insert_product_js_api_to_database() {
     $product_list = json_decode($json, true);
 
     // Allowed brands
-    $brands = [
-        "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
-        "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
-        "Babell", "Julimex", "Key", "Lama", "Lapinee", "Mitex",
-        "De Lafense", "Dekaren", "Donna", "Eldar", "Funny day",
-        "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
-        "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
-    ];
+    // $brands = [
+    //     "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
+    //     "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
+    //     "Babell", "Julimex", "Key", "Lama", "Lapinee", "Mitex",
+    //     "De Lafense", "Dekaren", "Donna", "Eldar", "Funny day",
+    //     "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
+    //     "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
+    // ];
+
+    // Get all product brands
+    $brands = get_all_product_brands();
 
     // Convert all brands to lowercase for comparison
     $brands_upper = array_map('strtoupper', $brands);
@@ -185,7 +188,7 @@ function insert_product_js_api_to_database() {
         $wpdb->query($sql);
     }
 
-
+    put_program_logs("Product data inserted successfully.");
 }
 
 

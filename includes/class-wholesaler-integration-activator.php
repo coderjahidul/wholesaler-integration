@@ -32,7 +32,7 @@ class Wholesaler_Integration_Activator {
 	public static function activate() {
 		global $wpdb;
 
-		$table_name = $wpdb->prefix . 'sync_js_wholesaler_products_data';
+		$table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
 		$charset_collate = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE $table_name (
