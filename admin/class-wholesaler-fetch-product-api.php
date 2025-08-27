@@ -142,6 +142,18 @@ function insert_product_js_api_to_database() {
     $json = json_encode($xml);
     $product_list = json_decode($json, true);
 
+    // Allowed brands
+    $brands = [
+        "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
+        "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
+        "Babell", "Julimex", "Key", "Lama", "Lapinee", "Mitex",
+        "De Lafense", "Dekaren", "Donna", "Eldar", "Funny day",
+        "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
+        "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
+    ];
+    // Convert all brands to lowercase for comparison
+    $brands_upper = array_map('strtoupper', $brands);
+
     if (!isset($product_list['articles']['article'])) {
         put_program_logs("No products found in API response");
         return;
@@ -150,10 +162,14 @@ function insert_product_js_api_to_database() {
     foreach ($product_list['articles']['article'] as $article) {
         // Basic info
         $product_data = $article;
-        put_program_logs("JS API response: " . print_r($product_data, true));
         $sku   = $article['@attributes']['sku'];
         $brand = $article['brand']['name'] ?? null;
         $price = $article['price'] ?? 0;
+
+        // Skip if brand is not in the allowed list
+        if (!in_array($brand, $brands_upper)){
+            continue;
+        }
 
         // Loop through units
         if (isset($article['units']['unit'])) {
@@ -219,6 +235,19 @@ function insert_product_mada_api_to_database() {
     $json = json_encode($xml);
     $product_list = json_decode($json, true);
 
+    // Allowed brands
+    $brands = [
+        "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
+        "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
+        "Babell", "Julimex", "Key", "Lama", "Lapinee", "Mitex",
+        "De Lafense", "Dekaren", "Donna", "Eldar", "Funny day",
+        "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
+        "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
+    ];
+
+    // Convert all brands to lowercase for comparison
+    $brands_upper = array_map('strtoupper', $brands);
+
     if (!isset($product_list['PRODUCTS']['PRODUCT'])) {
         put_program_logs("No products found in API response");
         return;
@@ -236,6 +265,11 @@ function insert_product_mada_api_to_database() {
 
         // Price
         $price = isset($product['PRICE']) ? floatval($product['PRICE']) : 0;
+
+        // Skip if brand is not in the allowed list
+        if (!in_array($brand, $brands_upper)){
+            continue;
+        }
 
         // Stock: MODELS -> MODEL -> SIZE count
         $stock = 0;
@@ -297,6 +331,19 @@ function insert_product_aren_api_to_database() {
     $json = json_encode($xml, JSON_UNESCAPED_UNICODE);
     $product_list = json_decode($json, true);
 
+    // Allowed brands
+    $brands = [
+        "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
+        "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
+        "Babell", "Julimex", "Key", "Lama", "Lapinee", "Mitex",
+        "De Lafense", "Dekaren", "Donna", "Eldar", "Funny day",
+        "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
+        "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
+    ];
+
+    // Convert all brands to lowercase for comparison
+    $brands_upper = array_map('strtoupper', $brands);
+
     if (isset($product_list['product']) && isset($product_list['product']['id'])) {
         $product_list['product'] = [$product_list['product']];
     }
@@ -314,6 +361,11 @@ function insert_product_aren_api_to_database() {
         $brand = $product['producer'] ?? null;
         $price = isset($product['base_price_netto']) ? (float) $product['base_price_netto'] : 0;
         $stock = isset($product['combinations']['combination']['quantity']) ? (int) $product['combinations']['combination']['quantity'] : 0;
+
+        // Skip if brand is not in the allowed list
+        if (!in_array($brand, $brands_upper)){
+            continue;
+        }
 
         // Insert full row
         $wpdb->insert(
