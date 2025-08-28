@@ -37,6 +37,17 @@ if ( !defined( 'WPINC' ) ) {
  */
 define( 'WHOLESALER_INTEGRATION_VERSION', '1.0.0' );
 
+
+// Define plugin path
+if ( !defined( 'WHOLESALER_PLUGIN_PATH' ) ) {
+    define( 'WHOLESALER_PLUGIN_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) );
+}
+
+// Define plugin url
+if ( !defined( 'WHOLESALER_PLUGIN_URL' ) ) {
+    define( 'WHOLESALER_PLUGIN_URL', untrailingslashit( plugin_dir_url( __FILE__ ) ) );
+}
+
 /**
  * The code that runs during plugin activation.
  * This action is documented in includes/class-wholesaler-integration-activator.php
