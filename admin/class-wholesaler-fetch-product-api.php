@@ -5,7 +5,7 @@ function wholesaler_fetch_js_product_api() {
     $wholesaler_js_url = get_option('wholesaler_js_url');
 
     if ( empty($wholesaler_js_url) ) {
-        put_program_logs("JS API URL not found.");
+        echo("JS API URL not found.");
         return false;
     }
 
@@ -33,7 +33,7 @@ function wholesaler_fetch_mada_product_api() {
     $wholesaler_mada_url = get_option('wholesaler_mada_url');
 
     if ( empty($wholesaler_mada_url) ) {
-        put_program_logs("MADA API URL not found.");
+        echo("MADA API URL not found.");
         return false;
     }
 
@@ -69,32 +69,32 @@ function wholesaler_fetch_mada_product_api() {
 
     // Verify the saved file
     if (filesize($temp_zip) === 0) {
-        put_program_logs("Saved zip file is empty. Check directory permissions: " . $upload_dir['basedir']);
         return false;
     }
-
-    put_program_logs("Downloaded Successfully. File size: " . filesize($temp_zip) . " bytes");
 
     // Extract ZIP
     $zip = new ZipArchive;
     if ($zip->open($temp_zip) === TRUE) {
         $extract_path = $upload_dir['basedir'] . "/mada_products/";
+
+        // Create directory if not exists
+        if (!file_exists($extract_path)) {
+            mkdir($extract_path, 0755, true);
+        }
         $zip->extractTo($extract_path);
         $zip->close();
 
-        put_program_logs("Mada ZIP extracted successfully.");
         
         // Assuming inside ZIP there is products.xml
         $xml_file = $extract_path . "products.xml";
         if (file_exists($xml_file)) {
             return file_get_contents($xml_file);
         } else {
-            put_program_logs("products.xml not found inside ZIP.");
             return false;
         }
 
     } else {
-        put_program_logs("Failed to open Mada ZIP file.");
+        echo("Failed to open Mada ZIP file.");
         return false;
     }
 }
@@ -104,7 +104,7 @@ function wholesaler_fetch_aren_product_api() {
     $wholesaler_aren_url = get_option('wholesaler_aren_url');
 
     if ( empty($wholesaler_aren_url) ) {
-        put_program_logs("AREN API URL not found.");
+        echo("AREN API URL not found.");
         return false;
     }
 
@@ -167,7 +167,6 @@ function insert_product_js_api_to_database() {
     $brands_upper = array_map('strtoupper', $brands);
 
     if (!isset($product_list['articles']['article'])) {
-        put_program_logs("No products found in API response");
         return;
     }
 
@@ -196,7 +195,14 @@ function insert_product_js_api_to_database() {
         $wpdb->query($sql);
     }
 
-    put_program_logs("Product data inserted successfully.");
+    // Success Total Products insert
+    if(empty($product_list['articles']['article'])){
+        echo("No products found in API response");
+        return;
+    }else{
+        $total_products = count($product_list['articles']['article']);
+        echo ("JS Product data inserted successfully. Total Products: $total_products");
+    }
 }
 
 
@@ -206,100 +212,64 @@ function insert_product_js_api_to_database() {
 function insert_product_mada_api_to_database() {
     global $wpdb;
 
-    $table_name = $wpdb->prefix . 'wholesaler_products_data';
+    $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
 
+    // Fetch XML
     $xml_content = wholesaler_fetch_mada_product_api();
     if (! $xml_content) {
-        put_program_logs("No XML content fetched.");
         return;
     }
 
+    // Parse XML
     $xml = simplexml_load_string($xml_content);
     if (!$xml) {
-        put_program_logs("Invalid XML format.");
         return;
     }
 
+    // Convert to array
     $json = json_encode($xml);
     $product_list = json_decode($json, true);
 
-    // Allowed brands
-    $brands = [
-        "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
-        "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
-        "Babell", "Julimex", "Key", "Lama", "Lapinee", "Mitex",
-        "De Lafense", "Dekaren", "Donna", "Eldar", "Funny day",
-        "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
-        "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
-    ];
-
-    // Convert all brands to lowercase for comparison
-    $brands_upper = array_map('strtoupper', $brands);
-
-    if (!isset($product_list['PRODUCTS']['PRODUCT'])) {
-        put_program_logs("No products found in API response");
+    if (empty($product_list['PRODUCTS']['PRODUCT'])) {
         return;
     }
 
     foreach ($product_list['PRODUCTS']['PRODUCT'] as $product) {
-        // Basic info
-        $product_data = $product;
-
         // SKU
         $sku = $product['ID'] ?? '';
 
-        // Brand / Producer
-        $brand = $product['BRAND'] ?? '';
+        // Brand (use PRODUCER instead of BRAND)
+        $brand = $product['PRODUCER'] ?? '';
 
-        // Price
-        $price = isset($product['PRICE']) ? floatval($product['PRICE']) : 0;
+        // Encode product data
+        $product_data = wp_json_encode($product);
 
-        // Skip if brand is not in the allowed list
-        if (!in_array($brand, $brands_upper)){
-            continue;
-        }
-
-        // Stock: MODELS -> MODEL -> SIZE count
-        $stock = 0;
-        if (!empty($product['MODELS']['MODEL'])) {
-            $models = $product['MODELS']['MODEL'];
-            if (isset($models['SIZE'])) {
-                // Single MODEL case
-                $models = [$models];
-            }
-            foreach ($models as $model) {
-                if (!empty($model['SIZE'])) {
-                    $sizes = $model['SIZE'];
-                    if (!is_array($sizes)) {
-                        $sizes = [$sizes];
-                    }
-                    $stock += count($sizes);
-                }
-            }
-        }
-
-        // Attributes
-        $attributes = $product['ATTRIBUTES']['ATTRIBUTE'] ?? null;
-
-        // Insert full row
-        $wpdb->insert(
-            $table_name,
-            [
-                'wholesaler_name' => 'Mada',
-                'sku'             => $sku,
-                'wholesale_price' => $price,
-                'stock'           => $stock,
-                'brand'           => $brand,
-                'attributes'      => wp_json_encode($attributes),
-                'product_data'    => wp_json_encode($product_data),
-                'last_synced'     => current_time('mysql'),
-            ],
-            [
-                '%s','%s','%f','%d','%s','%s','%s','%s'
-            ]
+        // Prepare SQL
+        $sql = $wpdb->prepare(
+            "INSERT INTO $table_name (sku, brand, product_data, status, created_at, updated_at)
+            VALUES (%s, %s, %s, 'Pending', NOW(), NOW())
+            ON DUPLICATE KEY UPDATE 
+                brand = VALUES(brand),
+                product_data = VALUES(product_data),
+                status = 'Pending',
+                updated_at = NOW()",
+            $sku, $brand, $product_data
         );
+
+        // Execute query
+        $wpdb->query($sql);
+    }
+
+    // Success Total Products insert
+    if(empty($product_list['PRODUCTS']['PRODUCT'])) {
+        echo("No products found in API response");
+        return;
+    }else{
+        $total_products = count($product_list['PRODUCTS']['PRODUCT']);
+        echo ("MADA Product data inserted successfully. Total Products: $total_products");
     }
 }
+
 
 // insert product aren api to database
 function insert_product_aren_api_to_database() {
@@ -309,9 +279,8 @@ function insert_product_aren_api_to_database() {
     $api_response = wholesaler_fetch_aren_product_api();
     
     // Load XML
-    $xml  = simplexml_load_string($api_response, "SimpleXMLElement", LIBXML_NOCDATA);
+    $xml = simplexml_load_string($api_response, "SimpleXMLElement", LIBXML_NOCDATA);
     if (!$xml) {
-        put_program_logs("❌ XML parsing failed");
         return;
     }
 
@@ -324,7 +293,6 @@ function insert_product_aren_api_to_database() {
     }
 
     if (!isset($product_list['product'])) {
-        put_program_logs("No products found in API response");
         return;
     }
 
@@ -337,8 +305,6 @@ function insert_product_aren_api_to_database() {
         if (is_array($brand)) {
             $brand = implode(', ', $brand); // or just $brand[0]
         }
-
-        put_program_logs("SKU: $sku, Brand: $brand");
 
         // Insert or update by SKU
         $sql = $wpdb->prepare(
@@ -353,6 +319,15 @@ function insert_product_aren_api_to_database() {
         );
 
         $wpdb->query($sql);
+    }
+
+    // Success Total Products insert
+    if(empty($product_list['product'])) {
+        echo("No products found in API response");
+        return;
+    }else{
+        $total_products = count($product_list['product']);
+        echo ("AREN Product data inserted successfully. Total Products: $total_products");
     }
 }
 
