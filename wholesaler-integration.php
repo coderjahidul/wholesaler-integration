@@ -37,7 +37,6 @@ if ( !defined( 'WPINC' ) ) {
  */
 define( 'WHOLESALER_INTEGRATION_VERSION', '1.0.0' );
 
-
 // Define plugin path
 if ( !defined( 'WHOLESALER_PLUGIN_PATH' ) ) {
     define( 'WHOLESALER_PLUGIN_PATH', untrailingslashit( plugin_dir_path( __FILE__ ) ) );
