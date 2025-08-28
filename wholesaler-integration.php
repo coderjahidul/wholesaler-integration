@@ -74,6 +74,7 @@ register_deactivation_hook( __FILE__, 'deactivate_wholesaler_integration' );
  */
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-brands-api.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration-import-products.php';
 
 /**
  * Begins execution of the plugin.

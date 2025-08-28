@@ -17,6 +17,10 @@ class Wholesaler_Integration_Import_Products {
     private $product_type = 'variable'; // enum: simple, variable
 
     public function __construct( string $website_url, string $consumer_key, string $consumer_secret ) {
+
+        // register rest api
+        $this->rest_api();
+
         // Set up the API client with WooCommerce store URL and credentials
         $this->client = new Client(
             $website_url,
@@ -85,6 +89,7 @@ class Wholesaler_Integration_Import_Products {
      * Handle REST API request
      */
     public function handle_rest_api_request( $request ) {
+
         $limit = $request->get_param( 'limit' );
 
         try {
@@ -108,7 +113,8 @@ class Wholesaler_Integration_Import_Products {
             global $wpdb;
 
             // Define products table
-            $products_table = $wpdb->prefix . 'sync_wholesaler_products_data';
+            $products_table   = $wpdb->prefix . 'sync_wholesaler_products_data';
+            $this->table_name = $products_table;
 
             // SQL query
             $sql = $wpdb->prepare( "SELECT * FROM {$products_table} WHERE status = %s LIMIT %d", 'Pending', $limit );
@@ -152,9 +158,6 @@ class Wholesaler_Integration_Import_Products {
             $errors         = [];
 
             foreach ( $products as $product ) {
-                wp_die($product);
-
-                
                 try {
                     $this->log_message( "Processing product ID: {$product->id}" );
 
@@ -163,7 +166,7 @@ class Wholesaler_Integration_Import_Products {
 
                     if ( $result['success'] ) {
                         $imported_count++;
-                        $this->mark_as_complete( $product->id );
+                        $this->mark_as_complete( $this->table_name, (int) $product->id );
                         $this->log_message( "Successfully imported product ID: {$product->id}" );
                     } else {
                         $errors[] = "Product ID {$product->id}: " . $result['message'];
@@ -198,24 +201,20 @@ class Wholesaler_Integration_Import_Products {
     private function import_single_product( $product ) {
         try {
             // Retrieve product data
-            $serial_id     = $product->id;
-            $sku           = $this->get_product_sku( $product );
-            $title         = $this->get_product_title( $product );
-            $description   = $this->get_product_description( $product );
-            $quantity      = $this->get_product_quantity( $product );
-            $images        = $this->get_product_images( $product );
-            $category      = $this->get_product_category( $product );
-            $tags          = $this->get_product_tags( $product );
-            $regular_price = $this->get_product_regular_price( $product );
-            $sale_price    = $this->get_product_sale_price( $product );
+            $serial_id       = $product->id;
+            $wholesaler_name = $product->wholesaler_name;
+
+            // map product data based on the wholesaler.
+            $mapped_product = [];
+            $mapped_product = $this->map_product_data( $wholesaler_name, $product );
 
             // Check if product already exists
-            $existing_product_id = $this->check_product_exists( $sku );
+            $existing_product_id = $this->check_product_exists( $mapped_product['sku'] );
 
             if ( $existing_product_id ) {
-                return $this->update_existing_product( $existing_product_id, $product, $quantity, $regular_price, $sale_price );
+                return $this->update_existing_product( $existing_product_id, $mapped_product );
             } else {
-                return $this->create_new_product( $product, $quantity, $regular_price, $sale_price );
+                return $this->create_new_product( $mapped_product );
             }
 
         } catch (Exception $e) {
@@ -225,6 +224,34 @@ class Wholesaler_Integration_Import_Products {
                 'message' => $e->getMessage(),
             ];
         }
+    }
+
+    public function map_product_data( string $wholesaler_name, $product ) {
+
+        // define default mapped product
+        $mapped_product = [];
+
+        // upper case wholesaler name
+        $wholesaler_name = strtoupper( $wholesaler_name );
+
+        switch ( $wholesaler_name ) {
+            case 'JS':
+                $mapped_product = $this->map_js_product_data( $product );
+                break;
+            case 'MADA':
+                echo 'mada';
+                // $mapped_product = $this->map_target_product_data( $product );
+                break;
+            case 'AREN':
+                echo 'aren';
+                // $mapped_product = $this->map_walmart_product_data( $product );
+                break;
+            default:
+                $mapped_product = $product;
+                break;
+        }
+
+        return $mapped_product;
     }
 
     /**
@@ -260,47 +287,33 @@ class Wholesaler_Integration_Import_Products {
     /**
      * Update existing product in WooCommerce
      */
-    private function update_existing_product( $product_id, $product, $quantity, $regular_price, $sale_price ) {
+    private function update_existing_product( int $existing_product_id, array $product ) {
         try {
-            $this->log_message( "Updating existing product ID: {$product_id}" );
+            $this->log_message( "Updating existing product ID: {$existing_product_id}" );
 
             $product_data = [
-                'name'        => $this->get_product_title( $product ),
-                'sku'         => $this->get_product_sku( $product ),
-                'type'        => $this->product_type,
-                'description' => $this->get_product_description( $product ),
-                'attributes'  => [],
+                'name'          => $product['name'],
+                'description'   => $product['description'],
+                'regular_price' => $product['regular_price'],
+                'price'         => $product['sale_price'],
+                'sale_price'    => $product['sale_price'],
             ];
 
             // Update product via API
-            $this->client->put( 'products/' . $product_id, $product_data );
+            $this->client->put( 'products/' . $existing_product_id, $product_data );
 
-            // Update product stock
-            $this->handle_product_stock( $product_id, $quantity );
+            // update stock variable product
 
-            // Update product prices
-            update_post_meta( $product_id, '_regular_price', $regular_price );
-            update_post_meta( $product_id, '_price', $sale_price );
-
-            // Update product category and tags
-            $this->update_product_taxonomies( $product_id, $product );
-
-            // Update product images
-            $images = $this->get_product_images( $product );
-            if ( !empty( $images ) ) {
-                $this->set_product_images( $product_id, $images );
-            }
-
-            $this->log_message( "Successfully updated product ID: {$product_id}" );
+            $this->log_message( "Successfully updated product ID: {$existing_product_id}" );
 
             return [
                 'success'    => true,
                 'message'    => 'Product updated successfully',
-                'product_id' => $product_id,
+                'product_id' => $existing_product_id,
             ];
 
         } catch (Exception $e) {
-            $this->log_message( "Error updating product {$product_id}: " . $e->getMessage() );
+            $this->log_message( "Error updating product {$existing_product_id}: " . $e->getMessage() );
             throw $e;
         }
     }
@@ -308,16 +321,18 @@ class Wholesaler_Integration_Import_Products {
     /**
      * Create new product in WooCommerce
      */
-    private function create_new_product( $product, $quantity, $regular_price, $sale_price ) {
+    private function create_new_product( array $product ) {
         try {
             $this->log_message( "Creating new product" );
 
             $product_data = [
-                'name'        => $this->get_product_title( $product ),
-                'sku'         => $this->get_product_sku( $product ),
-                'type'        => $this->product_type,
-                'description' => $this->get_product_description( $product ),
-                'attributes'  => [],
+                'name'        => $product['name'],
+                'sku'         => $product['sku'],
+                'type'        => 'variable',
+                'description' => $product['description'],
+                'attributes'  => $product['attributes'],
+                'categories'  => $product['category_terms'],
+                'images'      => $product['images_payload'],
             ];
 
             // Create the product via API
@@ -328,20 +343,19 @@ class Wholesaler_Integration_Import_Products {
             wp_set_object_terms( $product_id, $this->product_type, 'product_type' );
             update_post_meta( $product_id, '_visibility', 'visible' );
 
-            // Update product prices
-            update_post_meta( $product_id, '_regular_price', $regular_price );
-            update_post_meta( $product_id, '_price', $sale_price );
-
             // Update product category and tags
             $this->update_product_taxonomies( $product_id, $product );
 
-            // Update product stock
-            $this->handle_product_stock( $product_id, $quantity );
-
-            // Set product images
-            $images = $this->get_product_images( $product );
-            if ( !empty( $images ) ) {
-                $this->set_product_images( $product_id, $images );
+            // Create variations if provided
+            if ( !empty( $product['variations'] ) ) {
+                foreach ( $product['variations'] as $variation ) {
+                    try {
+                        $this->client->post( 'products/' . $product_id . '/variations', $variation );
+                    } catch (HttpClientException $e) {
+                        $this->log_message( 'WooCommerce API error creating variation for product ' . $product_id . ': ' . $e->getMessage() );
+                        continue;
+                    }
+                }
             }
 
             $this->log_message( "Successfully created product ID: {$product_id}" );
@@ -362,11 +376,12 @@ class Wholesaler_Integration_Import_Products {
      * Update product taxonomies (category and tags)
      */
     private function update_product_taxonomies( $product_id, $product ) {
-        $category = $this->get_product_category( $product );
-        $tags     = $this->get_product_tags( $product );
+        // Expecting mapped array structure
+        $categories = isset( $product['categories'] ) ? $product['categories'] : [];
+        $tags       = isset( $product['tags'] ) ? $product['tags'] : [];
 
-        if ( !empty( $category ) ) {
-            wp_set_object_terms( $product_id, $category, 'product_cat' );
+        if ( !empty( $categories ) ) {
+            wp_set_object_terms( $product_id, $categories, 'product_cat' );
         }
 
         if ( !empty( $tags ) ) {
@@ -377,7 +392,7 @@ class Wholesaler_Integration_Import_Products {
     /**
      * Handle product stock
      */
-    private function handle_product_stock( $product_id, $quantity ) {
+    private function handle_product_stock( int $product_id, int $quantity ) {
         update_post_meta( $product_id, '_stock', $quantity );
         update_post_meta( $product_id, '_manage_stock', 'yes' );
 
@@ -484,17 +499,14 @@ class Wholesaler_Integration_Import_Products {
     /**
      * Mark product as complete in database
      */
-    public function mark_as_complete( int $id ) {
+    public function mark_as_complete( string $table_name, int $serial_id ) {
         try {
             global $wpdb;
 
-            $table_prefix   = get_option( 'be-table-prefix' ) ?? '';
-            $products_table = $wpdb->prefix . $table_prefix . 'sync_products';
-
             $result = $wpdb->update(
-                $products_table,
-                [ 'status' => 'completed' ],
-                [ 'id' => $id ],
+                $table_name,
+                [ 'status' => 'Completed' ],
+                [ 'id' => $serial_id ],
                 [ '%s' ],
                 [ '%d' ]
             );
@@ -503,53 +515,124 @@ class Wholesaler_Integration_Import_Products {
                 throw new Exception( "Failed to update product status in database" );
             }
 
-            $this->log_message( "Product ID {$id} marked as completed" );
+            $this->log_message( "Product ID {$serial_id} marked as completed" );
             return true;
 
         } catch (Exception $e) {
-            $this->log_message( "Error marking product {$id} as complete: " . $e->getMessage() );
+            $this->log_message( "Error marking product {$serial_id} as complete: " . $e->getMessage() );
             return false;
         }
     }
 
-    // Helper methods to extract product data
-    private function get_product_sku( $product ) {
-        return isset( $product->sku ) ? $product->sku : '';
-    }
-
-    private function get_product_title( $product ) {
-        return isset( $product->title ) ? $product->title : '';
-    }
-
-    private function get_product_description( $product ) {
-        return isset( $product->description ) ? $product->description : '';
-    }
-
-    private function get_product_quantity( $product ) {
-        return isset( $product->quantity ) ? intval( $product->quantity ) : 0;
-    }
-
-    private function get_product_images( $product ) {
-        if ( isset( $product->images ) && is_string( $product->images ) ) {
-            return json_decode( $product->images, true );
+    private function parse_category_path_to_terms( $category_path ) {
+        // Example: "Bielizna|Damska|Majtki" => [ 'Bielizna', 'Damska', 'Majtki' ]
+        if ( empty( $category_path ) ) {
+            return [];
         }
-        return isset( $product->images ) ? $product->images : [];
+        $parts = array_map( 'trim', explode( '|', $category_path ) );
+        return $parts;
     }
 
-    private function get_product_category( $product ) {
-        return isset( $product->category ) ? $product->category : '';
-    }
+    private function map_js_product_data( $product_obj ) {
+        // $product_obj is stdClass from DB; decode nested JSON
+        $payload = is_string( $product_obj->product_data ) ? json_decode( $product_obj->product_data, true ) : (array) $product_obj->product_data;
 
-    private function get_product_tags( $product ) {
-        return isset( $product->tags ) ? $product->tags : '';
-    }
+        $name = isset( $payload['name'] ) && is_array( $payload['name'] ) ? ( $payload['name']['en'] ?? ( $payload['name']['pl'] ?? '' ) ) : ( $payload['name'] ?? '' );
+        if ( empty( $name ) && isset( $product_obj->sku ) ) {
+            $name = $product_obj->sku;
+        }
 
-    private function get_product_regular_price( $product ) {
-        return isset( $product->regular_price ) ? floatval( $product->regular_price ) : 0;
-    }
+        $brand       = isset( $payload['brand']['name'] ) ? $payload['brand']['name'] : ( $product_obj->brand ?? '' );
+        $description = isset( $payload['attributes']['opis'] ) && is_array( $payload['attributes']['opis'] ) ? implode( "\n", $payload['attributes']['opis'] ) : '';
 
-    private function get_product_sale_price( $product ) {
-        return isset( $product->sale_price ) ? floatval( $product->sale_price ) : 0;
+        $images_urls    = isset( $payload['images'] ) && is_array( $payload['images'] ) ? $payload['images'] : [];
+        $images_payload = array_map( function ($url) {
+            return [ 'src' => $url ];
+        }, $images_urls );
+
+        $categories_terms = $this->parse_category_path_to_terms( $payload['category_keys'] ?? '' );
+
+        $size_options  = [];
+        $color_options = [];
+        $variations    = [];
+
+        if ( isset( $payload['units']['unit'] ) && is_array( $payload['units']['unit'] ) ) {
+            foreach ( $payload['units']['unit'] as $unit ) {
+                $size  = isset( $unit['size'] ) ? (string) $unit['size'] : '';
+                $color = isset( $unit['color'] ) ? (string) $unit['color'] : '';
+                if ( $size !== '' && !in_array( $size, $size_options, true ) ) {
+                    $size_options[] = $size;
+                }
+                if ( $color !== '' && !in_array( $color, $color_options, true ) ) {
+                    $color_options[] = $color;
+                }
+            }
+
+            foreach ( $payload['units']['unit'] as $unit ) {
+                $unitSku  = $unit['@attributes']['sku'] ?? '';
+                $unitEan  = $unit['@attributes']['ean'] ?? '';
+                $size     = $unit['size'] ?? '';
+                $color    = $unit['color'] ?? '';
+                $stockQty = isset( $unit['stock'] ) ? (int) $unit['stock'] : 0;
+
+                $variations[] = [
+                    'sku'            => $unitSku,
+                    'regular_price'  => isset( $payload['price'] ) ? (string) $payload['price'] : '0',
+                    'manage_stock'   => true,
+                    'stock_quantity' => $stockQty,
+                    'attributes'     => [
+                        [ 'name' => 'Color', 'option' => $color ],
+                        [ 'name' => 'Size', 'option' => $size ],
+                    ],
+                    'meta_data'      => [
+                        [ 'key' => '_ean', 'value' => $unitEan ],
+                    ],
+                ];
+            }
+        }
+
+        $attributes = [];
+        if ( !empty( $color_options ) ) {
+            $attributes[] = [
+                'name'      => 'Color',
+                'position'  => 0,
+                'visible'   => true,
+                'variation' => true,
+                'options'   => $color_options,
+            ];
+        }
+        if ( !empty( $size_options ) ) {
+            $attributes[] = [
+                'name'      => 'Size',
+                'position'  => 1,
+                'visible'   => true,
+                'variation' => true,
+                'options'   => $size_options,
+            ];
+        }
+
+        return [
+            'name'           => $name,
+            'sku'            => (string) ( $product_obj->sku ?? '' ),
+            'brand'          => $brand,
+            'description'    => $description,
+            'regular_price'  => isset( $payload['price'] ) ? (string) $payload['price'] : '0',
+            'sale_price'     => isset( $payload['price'] ) ? (string) $payload['price'] : '0',
+            'images_payload' => $images_payload,
+            'categories'     => $categories_terms,
+            'category_terms' => array_map( function ($name) {
+                return [ 'name' => $name ];
+            }, $categories_terms ),
+            'tags'           => [],
+            'attributes'     => $attributes,
+            'variations'     => $variations,
+        ];
     }
 
 }
+
+
+$website_url     = site_url();
+$consumer_key    = 'ck_bd61b9e5e4ef1ec86aeb2052ea7bafa271c965d4';
+$consumer_secret = 'cs_dc3d354f1e8d0f73a6b3ece5d39fa55d3816654c';
+new Wholesaler_Integration_Import_Products( $website_url, $consumer_key, $consumer_secret );
