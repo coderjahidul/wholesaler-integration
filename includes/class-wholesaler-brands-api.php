@@ -18,18 +18,14 @@ class Wholesaler_Brands_API {
         register_rest_route( 'wholesaler/v1', '/get-brands', [
             'methods'  => 'GET',
             'callback' => [ $this, 'get_brands' ],
-            'permission_callback' => function () {
-                return current_user_can( 'manage_options' );
-            }
+            'permission_callback' => "__return_true"
         ] );
 
         // Import/seed brands
         register_rest_route( 'wholesaler/v1', '/seed-brands', [
             'methods'  => 'POST',
             'callback' => [ $this, 'seed_brands' ],
-            'permission_callback' => function () {
-                return current_user_can( 'manage_options' );
-            }
+            'permission_callback' => "__return_true"
         ] );
     }
 
