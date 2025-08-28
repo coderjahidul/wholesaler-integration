@@ -127,7 +127,25 @@ function wholesaler_fetch_aren_product_api() {
     $response = curl_exec($curl);
 
     curl_close($curl);
-    return $response;
+
+
+    // WordPress upload dir বের করা
+    $upload_dir   = wp_upload_dir();
+    $extract_path = $upload_dir['basedir'] . "/aren_products/";
+
+    // ডিরেক্টরি না থাকলে তৈরি করা
+    if (!file_exists($extract_path)) {
+        wp_mkdir_p($extract_path);
+    }
+
+    // ফাইলের নাম ঠিক করা
+    $xml_file = $extract_path . "oferta-produktow-pelna.xml";
+
+    // API response ফাইলে সেভ করা
+    // file_put_contents($xml_file, $response);
+    // আবার পড়া ও return করা
+    return file_get_contents($xml_file);
+    
 }
 
 // insert product js api to database
@@ -141,16 +159,6 @@ function insert_product_js_api_to_database() {
     $xml  = simplexml_load_string($api_response);
     $json = json_encode($xml);
     $product_list = json_decode($json, true);
-
-    // Allowed brands
-    // $brands = [
-    //     "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
-    //     "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
-    //     "Babell", "Julimex", "Key", "Lama", "Lapinee", "Mitex",
-    //     "De Lafense", "Dekaren", "Donna", "Eldar", "Funny day",
-    //     "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
-    //     "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
-    // ];
 
     // Get all product brands
     $brands = get_all_product_brands();
@@ -297,7 +305,7 @@ function insert_product_mada_api_to_database() {
 function insert_product_aren_api_to_database() {
     global $wpdb;
 
-    $table_name = $wpdb->prefix . 'wholesaler_products_data';
+    $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
     $api_response = wholesaler_fetch_aren_product_api();
     
     // Load XML
@@ -311,19 +319,6 @@ function insert_product_aren_api_to_database() {
     $json = json_encode($xml, JSON_UNESCAPED_UNICODE);
     $product_list = json_decode($json, true);
 
-    // Allowed brands
-    $brands = [
-        "AVA", "Ava Active", "Gaia", "Gorsenia", "Konrad", "Mediolano",
-        "Mat", "Mefemi by Nipplex", "Henderson Laydies", "Lupoline",
-        "Babell", "Julimex", "Key", "Lama", "Lapinee", "Mitex",
-        "De Lafense", "Dekaren", "Donna", "Eldar", "Funny day",
-        "Taro", "Cornette", "Henderson", "Delafense", "Obsessive",
-        "Gatta Bodywear", "Gatta", "Gabriella", "Fiore", "Mona", "Ava swimwear"
-    ];
-
-    // Convert all brands to lowercase for comparison
-    $brands_upper = array_map('strtoupper', $brands);
-
     if (isset($product_list['product']) && isset($product_list['product']['id'])) {
         $product_list['product'] = [$product_list['product']];
     }
@@ -333,37 +328,31 @@ function insert_product_aren_api_to_database() {
         return;
     }
 
+
     foreach ($product_list['product'] as $product) {
         // Basic info
-        $product_data = $product;
-        put_program_logs("AREN API response: " . print_r($product_data, true));
+        $product_data = json_encode($product);
         $sku   = $product['code'];
         $brand = $product['producer'] ?? null;
-        $price = isset($product['base_price_netto']) ? (float) $product['base_price_netto'] : 0;
-        $stock = isset($product['combinations']['combination']['quantity']) ? (int) $product['combinations']['combination']['quantity'] : 0;
-
-        // Skip if brand is not in the allowed list
-        if (!in_array($brand, $brands_upper)){
-            continue;
+        if (is_array($brand)) {
+            $brand = implode(', ', $brand); // or just $brand[0]
         }
 
-        // Insert full row
-        $wpdb->insert(
-            $table_name,
-            [
-                'wholesaler_name' => 'AREN',
-                'sku'             => $sku,
-                'wholesale_price' => $price,
-                'stock'           => $stock,
-                'brand'           => $brand,
-                'attributes'      => wp_json_encode([]),
-                'product_data'    => wp_json_encode($product_data), // product_data
-                'last_synced'     => current_time('mysql'),
-            ],
-            [
-                '%s','%s','%f','%d','%s','%s','%s','%s'
-            ]
+        put_program_logs("SKU: $sku, Brand: $brand");
+
+        // Insert or update by SKU
+        $sql = $wpdb->prepare(
+            "INSERT INTO $table_name (sku, brand, product_data, status, created_at, updated_at)
+            VALUES (%s, %s, %s, 'Pending', NOW(), NOW())
+            ON DUPLICATE KEY UPDATE 
+                brand = VALUES(brand),
+                product_data = VALUES(product_data),
+                status = 'Pending',
+                updated_at = NOW()",
+            $sku, $brand, $product_data
         );
+
+        $wpdb->query($sql);
     }
 }
 
