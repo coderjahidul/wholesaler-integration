@@ -43,9 +43,6 @@ class Wholesaler_Integration_Import_Products {
             ]
         );
         
-        // Set up logging
-        $this->log_file = WHOLESALER_PLUGIN_PATH . '/program_logs/import_products.log';
-        $this->ensure_log_directory();
 
         // Init services/helpers
         $this->js_service = new Wholesaler_JS_Wholesaler_Service();
