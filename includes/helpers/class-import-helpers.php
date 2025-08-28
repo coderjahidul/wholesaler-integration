@@ -34,6 +34,7 @@ class Wholesaler_Import_Helpers {
     public function update_product_taxonomies( int $product_id, array $mapped_product ) {
         $categories = isset( $mapped_product['categories'] ) ? $mapped_product['categories'] : [];
         $tags       = isset( $mapped_product['tags'] ) ? $mapped_product['tags'] : [];
+        $product_brand = isset( $mapped_product['brand'] ) ? $mapped_product['brand'] : '';
 
         if ( !empty( $categories ) ) {
             wp_set_object_terms( $product_id, $categories, 'product_cat' );
@@ -41,6 +42,10 @@ class Wholesaler_Import_Helpers {
 
         if ( !empty( $tags ) ) {
             wp_set_object_terms( $product_id, $tags, 'product_tag' );
+        }
+
+        if ( !empty( $product_brand ) ) {
+            wp_set_object_terms( $product_id, $product_brand, 'product_brand' );
         }
     }
 
