@@ -37,6 +37,7 @@ class Wholesaler_Integration_Activator {
 
 		$sql = "CREATE TABLE $table_name (
 			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			wholesaler_name VARCHAR(10) NOT NULL,
 			sku VARCHAR(100) UNIQUE NOT NULL,
 			brand VARCHAR(100) DEFAULT NULL,
 			product_data JSON NULL,

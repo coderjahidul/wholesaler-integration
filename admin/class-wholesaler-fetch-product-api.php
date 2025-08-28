@@ -182,8 +182,8 @@ function insert_product_js_api_to_database() {
 
         // Insert or update by SKU
         $sql = $wpdb->prepare(
-            "INSERT INTO $table_name (sku, brand, product_data, status, created_at, updated_at)
-            VALUES (%s, %s, %s, 'Pending', NOW(), NOW())
+            "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
+            VALUES ('JS', %s, %s, %s, 'Pending', NOW(), NOW())
             ON DUPLICATE KEY UPDATE 
                 brand = VALUES(brand),
                 product_data = VALUES(product_data),
@@ -246,8 +246,8 @@ function insert_product_mada_api_to_database() {
 
         // Prepare SQL
         $sql = $wpdb->prepare(
-            "INSERT INTO $table_name (sku, brand, product_data, status, created_at, updated_at)
-            VALUES (%s, %s, %s, 'Pending', NOW(), NOW())
+            "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
+            VALUES ('MADA', %s, %s, %s, 'Pending', NOW(), NOW())
             ON DUPLICATE KEY UPDATE 
                 brand = VALUES(brand),
                 product_data = VALUES(product_data),
@@ -308,8 +308,8 @@ function insert_product_aren_api_to_database() {
 
         // Insert or update by SKU
         $sql = $wpdb->prepare(
-            "INSERT INTO $table_name (sku, brand, product_data, status, created_at, updated_at)
-            VALUES (%s, %s, %s, 'Pending', NOW(), NOW())
+            "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
+            VALUES ('AREN', %s, %s, %s, 'Pending', NOW(), NOW())
             ON DUPLICATE KEY UPDATE 
                 brand = VALUES(brand),
                 product_data = VALUES(product_data),
