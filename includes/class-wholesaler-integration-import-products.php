@@ -332,8 +332,10 @@ class Wholesaler_Integration_Import_Products {
                 'description' => $product['description'],
                 'attributes'  => $product['attributes'],
                 'categories'  => $product['category_terms'],
-                'images'      => $product['images_payload'],
             ];
+            if ( !empty( $product['images_payload'] ) ) {
+                $product_data['images'] = $product['images_payload'];
+            }
 
             // Create the product via API
             $wc_product = $this->client->post( 'products', $product_data );
@@ -533,11 +535,49 @@ class Wholesaler_Integration_Import_Products {
         return $parts;
     }
 
+    private function build_images_payload_from_js( $images_field ) {
+        $result = [];
+        if ( empty( $images_field ) ) {
+            return $result;
+        }
+
+        // Case 1: images is an array of URLs
+        if ( is_array( $images_field ) && isset( $images_field[0] ) && is_string( $images_field[0] ) ) {
+            foreach ( $images_field as $url ) {
+                if ( is_string( $url ) && $url !== '' ) {
+                    $result[] = [ 'src' => $url ];
+                }
+            }
+            return $result;
+        }
+
+        // Case 2: images has key 'image'
+        if ( is_array( $images_field ) && isset( $images_field['image'] ) ) {
+            $img = $images_field['image'];
+            // Single image object
+            if ( is_array( $img ) && isset( $img['image_url'] ) && is_string( $img['image_url'] ) ) {
+                $result[] = [ 'src' => $img['image_url'] ];
+                return $result;
+            }
+            // List of image objects
+            if ( is_array( $img ) ) {
+                foreach ( $img as $entry ) {
+                    if ( is_array( $entry ) && isset( $entry['image_url'] ) && is_string( $entry['image_url'] ) ) {
+                        $result[] = [ 'src' => $entry['image_url'] ];
+                    }
+                }
+                return $result;
+            }
+        }
+
+        return $result;
+    }
+
     private function map_js_product_data( $product_obj ) {
         // $product_obj is stdClass from DB; decode nested JSON
         $payload = is_string( $product_obj->product_data ) ? json_decode( $product_obj->product_data, true ) : (array) $product_obj->product_data;
 
-        $name = isset( $payload['name'] ) && is_array( $payload['name'] ) ? ( $payload['name']['en'] ?? ( $payload['name']['pl'] ?? '' ) ) : ( $payload['name'] ?? '' );
+        $name        = isset( $payload['name'] ) && is_array( $payload['name'] ) ? ( $payload['name']['en'] ?? ( $payload['name']['pl'] ?? '' ) ) : ( $payload['name'] ?? '' );
         if ( empty( $name ) && isset( $product_obj->sku ) ) {
             $name = $product_obj->sku;
         }
@@ -545,10 +585,8 @@ class Wholesaler_Integration_Import_Products {
         $brand       = isset( $payload['brand']['name'] ) ? $payload['brand']['name'] : ( $product_obj->brand ?? '' );
         $description = isset( $payload['attributes']['opis'] ) && is_array( $payload['attributes']['opis'] ) ? implode( "\n", $payload['attributes']['opis'] ) : '';
 
-        $images_urls    = isset( $payload['images'] ) && is_array( $payload['images'] ) ? $payload['images'] : [];
-        $images_payload = array_map( function ($url) {
-            return [ 'src' => $url ];
-        }, $images_urls );
+        // Normalize images
+        $images_payload = $this->build_images_payload_from_js( $payload['images'] ?? [] );
 
         $categories_terms = $this->parse_category_path_to_terms( $payload['category_keys'] ?? '' );
 
@@ -582,7 +620,7 @@ class Wholesaler_Integration_Import_Products {
                     'stock_quantity' => $stockQty,
                     'attributes'     => [
                         [ 'name' => 'Color', 'option' => $color ],
-                        [ 'name' => 'Size', 'option' => $size ],
+                        [ 'name' => 'Size',  'option' => $size ],
                     ],
                     'meta_data'      => [
                         [ 'key' => '_ean', 'value' => $unitEan ],
@@ -620,9 +658,7 @@ class Wholesaler_Integration_Import_Products {
             'sale_price'     => isset( $payload['price'] ) ? (string) $payload['price'] : '0',
             'images_payload' => $images_payload,
             'categories'     => $categories_terms,
-            'category_terms' => array_map( function ($name) {
-                return [ 'name' => $name ];
-            }, $categories_terms ),
+            'category_terms' => array_map( function ( $name ) { return [ 'name' => $name ]; }, $categories_terms ),
             'tags'           => [],
             'attributes'     => $attributes,
             'variations'     => $variations,
