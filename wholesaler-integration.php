@@ -26,8 +26,8 @@
  */
 
 // If this file is called directly, abort.
-if ( ! defined( 'WPINC' ) ) {
-	die;
+if ( !defined( 'WPINC' ) ) {
+    die;
 }
 
 /**
@@ -42,8 +42,8 @@ define( 'WHOLESALER_INTEGRATION_VERSION', '1.0.0' );
  * This action is documented in includes/class-wholesaler-integration-activator.php
  */
 function activate_wholesaler_integration() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration-activator.php';
-	Wholesaler_Integration_Activator::activate();
+    require_once plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration-activator.php';
+    Wholesaler_Integration_Activator::activate();
 }
 
 /**
@@ -51,8 +51,8 @@ function activate_wholesaler_integration() {
  * This action is documented in includes/class-wholesaler-integration-deactivator.php
  */
 function deactivate_wholesaler_integration() {
-	require_once plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration-deactivator.php';
-	Wholesaler_Integration_Deactivator::deactivate();
+    require_once plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration-deactivator.php';
+    Wholesaler_Integration_Deactivator::deactivate();
 }
 
 register_activation_hook( __FILE__, 'activate_wholesaler_integration' );
@@ -63,6 +63,7 @@ register_deactivation_hook( __FILE__, 'deactivate_wholesaler_integration' );
  * admin-specific hooks, and public-facing site hooks.
  */
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-brands-api.php';
 
 /**
  * Begins execution of the plugin.
@@ -75,25 +76,25 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration.php
  */
 function run_wholesaler_integration() {
 
-	$plugin = new Wholesaler_Integration();
-	$plugin->run();
+    $plugin = new Wholesaler_Integration();
+    $plugin->run();
 
 }
 run_wholesaler_integration();
 
-function get_all_product_brands($hide_empty = false) {
-    $terms = get_terms([
+function get_all_product_brands( $hide_empty = false ) {
+    $terms = get_terms( [
         'taxonomy'   => 'product_brand', // Change if your brand taxonomy is different (e.g. 'pwb-brand')
         'orderby'    => 'name',
         'hide_empty' => $hide_empty,
-    ]);
+    ] );
 
-    if (is_wp_error($terms) || empty($terms)) {
+    if ( is_wp_error( $terms ) || empty( $terms ) ) {
         return [];
     }
 
     // Extract only brand names into a simple array
-    return wp_list_pluck($terms, 'name');
+    return wp_list_pluck( $terms, 'name' );
 }
 
 // Function to append data to a log file
@@ -101,9 +102,9 @@ function put_program_logs( $data ) {
 
     // Ensure the directory for logs exists
     $directory = __DIR__ . '/program_logs/';
-    if ( ! file_exists( $directory ) ) {
+    if ( !file_exists( $directory ) ) {
         // Use wp_mkdir_p instead of mkdir
-        if ( ! wp_mkdir_p( $directory ) ) {
+        if ( !wp_mkdir_p( $directory ) ) {
             return "Failed to create directory.";
         }
     }
