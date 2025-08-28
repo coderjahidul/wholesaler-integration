@@ -633,6 +633,6 @@ class Wholesaler_Integration_Import_Products {
 
 
 $website_url     = site_url();
-$consumer_key    = 'ck_bd61b9e5e4ef1ec86aeb2052ea7bafa271c965d4';
-$consumer_secret = 'cs_dc3d354f1e8d0f73a6b3ece5d39fa55d3816654c';
+$consumer_key    = get_option('wholesaler_consumer_key', '');
+$consumer_secret = get_option('wholesaler_consumer_secret', '');
 new Wholesaler_Integration_Import_Products( $website_url, $consumer_key, $consumer_secret );
