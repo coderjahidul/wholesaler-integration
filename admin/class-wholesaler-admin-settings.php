@@ -98,6 +98,7 @@ class Wholesaler_Admin_Settings {
                         <?php
                         $endpoints = [
                             ['GET', '/wp-json/wholesaler/v1/get-brands', 'Fetch all brands'],
+                            ['POST', '/wp-json/wholesaler/v1/seed-brands', 'Seed brands'],
                             ['GET', '/wp-json/wholesaler/v1/products/js', 'Fetch JS API products into DB'],
                             ['GET', '/wp-json/wholesaler/v1/products/mada', 'Fetch Mada API products into DB'],
                             ['GET', '/wp-json/wholesaler/v1/products/aren', 'Fetch Aren API products into DB'],
