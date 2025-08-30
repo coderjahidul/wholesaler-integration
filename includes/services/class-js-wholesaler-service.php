@@ -19,6 +19,11 @@ class Wholesaler_JS_Wholesaler_Service {
 
         $categories_terms = $this->parse_category_path_to_terms( $payload['category_keys'] ?? '' );
 
+        // get wholesaler price
+        $wholesaler_price = isset( $payload['price'] ) ? (float) $payload['price'] : 0;
+
+        $product_regular_price = calculate_product_price_with_margin( $wholesaler_price, $brand );
+
         $size_options  = [];
         $color_options = [];
         $variations    = [];
@@ -44,7 +49,7 @@ class Wholesaler_JS_Wholesaler_Service {
 
                 $variations[] = [
                     'sku'            => $unitSku,
-                    'regular_price'  => isset( $payload['price'] ) ? (string) $payload['price'] : '0',
+                    'regular_price'  => (string) $product_regular_price,
                     'manage_stock'   => true,
                     'stock_quantity' => $stockQty,
                     'attributes'     => [
@@ -83,8 +88,8 @@ class Wholesaler_JS_Wholesaler_Service {
             'sku'            => (string) ( $product_obj->sku ?? '' ),
             'brand'          => $brand,
             'description'    => $description,
-            'regular_price'  => isset( $payload['price'] ) ? (string) $payload['price'] : '0',
-            'sale_price'     => isset( $payload['price'] ) ? (string) $payload['price'] : '0',
+            'regular_price'  => (string) $product_regular_price,
+            'sale_price'     => '',
             'images_payload' => $images_payload,
             'categories'     => $categories_terms,
             'category_terms' => array_map( function ( $name ) { return [ 'name' => $name ]; }, $categories_terms ),
