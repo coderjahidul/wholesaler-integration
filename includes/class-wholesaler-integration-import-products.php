@@ -264,6 +264,9 @@ class Wholesaler_Integration_Import_Products {
             // Update product via API
             $this->client->put( 'products/' . $existing_product_id, $product_data );
 
+            // Set product wholesaler price
+            update_post_meta( $existing_product_id, '_wholesaler_price', $product['wholesale_price'] );
+
             // update stock variable product
 
             $this->log_message( "Successfully updated product ID: {$existing_product_id}" );
@@ -306,6 +309,9 @@ class Wholesaler_Integration_Import_Products {
             // Set product information
             wp_set_object_terms( $product_id, $this->product_type, 'product_type' );
             update_post_meta( $product_id, '_visibility', 'visible' );
+
+            // Set product wholesaler price
+            update_post_meta( $product_id, '_wholesaler_price', $product['wholesale_price'] );
 
             // Update product category and tags
             $this->update_product_taxonomies( $product_id, $product );

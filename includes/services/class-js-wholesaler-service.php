@@ -50,6 +50,7 @@ class Wholesaler_JS_Wholesaler_Service {
                 $variations[] = [
                     'sku'            => $unitSku,
                     'regular_price'  => (string) $product_regular_price,
+                    'wholesale_price' => (string) $wholesaler_price,
                     'manage_stock'   => true,
                     'stock_quantity' => $stockQty,
                     'attributes'     => [
@@ -90,6 +91,7 @@ class Wholesaler_JS_Wholesaler_Service {
             'description'    => $description,
             'regular_price'  => (string) $product_regular_price,
             'sale_price'     => '',
+            'wholesale_price' => (string) $wholesaler_price,
             'images_payload' => $images_payload,
             'categories'     => $categories_terms,
             'category_terms' => array_map( function ( $name ) { return [ 'name' => $name ]; }, $categories_terms ),
