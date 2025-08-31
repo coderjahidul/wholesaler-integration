@@ -50,6 +50,8 @@ class Wholesaler_Integration_Import_Products {
 
         // Init services/helpers
         $this->js_service = new Wholesaler_JS_Wholesaler_Service();
+        $this->mada_service = new Wholesaler_MADA_Wholesaler_Service();
+        $this->aren_service = new Wholesaler_AREN_Wholesaler_Service();
         $this->helpers    = new Wholesaler_Import_Helpers();
     }
 
@@ -368,13 +370,11 @@ class Wholesaler_Integration_Import_Products {
     }
 
     private function map_target_product_data( $product_obj ) {
-        return "mada service";
-        // return $this->mada_service->map( $product_obj );
+        return $this->mada_service->map( $product_obj );
     }
 
     private function map_aren_product_data( $product_obj ) {
-        return "aren service";
-        // return $this->aren_service->map( $product_obj );
+        return $this->aren_service->map( $product_obj );
     }
 
 }
