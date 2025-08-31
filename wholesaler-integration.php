@@ -72,6 +72,8 @@ register_deactivation_hook( __FILE__, 'deactivate_wholesaler_integration' );
  * The core plugin class that is used to define internationalization,
  * admin-specific hooks, and public-facing site hooks.
  */
+require plugin_dir_path( __FILE__ ) . 'includes/enums/status-enum.php';
+require plugin_dir_path( __FILE__ ) . 'includes/helpers/helper.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-brands-api.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration-import-products.php';
@@ -92,64 +94,3 @@ function run_wholesaler_integration() {
 
 }
 run_wholesaler_integration();
-
-function get_all_product_brands( $hide_empty = false ) {
-    $terms = get_terms( [
-        'taxonomy'   => 'product_brand', // Change if your brand taxonomy is different (e.g. 'pwb-brand')
-        'orderby'    => 'name',
-        'hide_empty' => $hide_empty,
-    ] );
-
-    if ( is_wp_error( $terms ) || empty( $terms ) ) {
-        return [];
-    }
-
-    // Extract only brand names into a simple array
-    return wp_list_pluck( $terms, 'name' );
-}
-
-// Function to calculate final product price
-function calculate_product_price_with_margin( $wholesaler_price, $brand ) {
-    // Ensure base_price is float
-    $wholesaler_price = (float) $wholesaler_price;
-
-    // Get profit margin from settings (default 0 if not set)
-    $profit_margin = (float) get_option( 'wholesaler_retail_margin', 0 );
-
-    // If brand is Mediolano, return wholesale price only
-    if ( strtolower($brand) === 'mediolano' ) {
-        return number_format( $wholesaler_price, 2, '.', '' );
-    }
-
-    // Otherwise, add margin
-    $product_regular_price = $wholesaler_price * ( 1 + ( $profit_margin / 100 ) );
-
-    return number_format( $product_regular_price, 2, '.', '' );
-}
-
-// Function to append data to a log file
-function put_program_logs( $data ) {
-
-    // Ensure the directory for logs exists
-    $directory = __DIR__ . '/program_logs/';
-    if ( !file_exists( $directory ) ) {
-        // Use wp_mkdir_p instead of mkdir
-        if ( !wp_mkdir_p( $directory ) ) {
-            return "Failed to create directory.";
-        }
-    }
-
-    // Construct the log file path
-    $file_name = $directory . 'program_logs.log';
-
-    // Append the current datetime to the log entry
-    $current_datetime = gmdate( 'Y-m-d H:i:s' ); // Use gmdate instead of date
-    $data             = $data . ' - ' . $current_datetime;
-
-    // Write the log entry to the file
-    if ( file_put_contents( $file_name, $data . "\n\n", FILE_APPEND | LOCK_EX ) !== false ) {
-        return "Data appended to file successfully.";
-    } else {
-        return "Failed to append data to file.";
-    }
-}

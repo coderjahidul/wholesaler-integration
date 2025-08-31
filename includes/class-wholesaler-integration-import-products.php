@@ -27,6 +27,7 @@ class Wholesaler_Integration_Import_Products {
     private $js_service;
     private $mada_service;
     private $aren_service;
+    private $statuses;
     private $helpers;
 
     public function __construct( string $website_url, string $consumer_key, string $consumer_secret ) {
@@ -109,7 +110,7 @@ class Wholesaler_Integration_Import_Products {
             $this->table_name = $products_table;
 
             // SQL query
-            $sql = $wpdb->prepare( "SELECT * FROM {$products_table} WHERE status = %s LIMIT %d", 'Pending', $limit );
+            $sql = $wpdb->prepare( "SELECT * FROM {$products_table} WHERE status = %s LIMIT %d", Status_Enum::PENDING->value, $limit );
 
             // Retrieve pending products from the database
             $products = $wpdb->get_results( $sql );
@@ -230,14 +231,15 @@ class Wholesaler_Integration_Import_Products {
 
         switch ( $wholesaler_name ) {
             case 'JS':
+                echo 'Wholesaler: JS';
                 $mapped_product = $this->map_js_product_data( $product );
                 break;
             case 'MADA':
-                echo 'mada';
-                $mapped_product = $this->map_target_product_data( $product );
+                echo 'Wholesaler: Mada';
+                $mapped_product = $this->map_mada_product_data( $product );
                 break;
             case 'AREN':
-                echo 'aren';
+                echo 'Wholesaler: Aren';
                 $mapped_product = $this->map_aren_product_data( $product );
                 break;
             default:
@@ -262,6 +264,9 @@ class Wholesaler_Integration_Import_Products {
         try {
             $this->log_message( "Updating existing product ID: {$existing_product_id}" );
 
+            // TODO: prepare product data for variable product.
+            // TODO: update the product price and stock only.
+
             $product_data = [
                 'name'          => $product['name'],
                 'description'   => $product['description'],
@@ -276,7 +281,7 @@ class Wholesaler_Integration_Import_Products {
             // Set product wholesaler price
             update_post_meta( $existing_product_id, '_wholesaler_price', $product['wholesale_price'] );
 
-            // update stock variable product
+            // TODO: update stock variable product
 
             $this->log_message( "Successfully updated product ID: {$existing_product_id}" );
 
@@ -302,7 +307,7 @@ class Wholesaler_Integration_Import_Products {
             $product_data = [
                 'name'        => $product['name'],
                 'sku'         => $product['sku'],
-                'type'        => 'variable',
+                'type'        => 'variable', // TODO: need check is simple or variable product
                 'description' => $product['description'],
                 'attributes'  => $product['attributes'],
                 'categories'  => $product['category_terms'],
@@ -369,7 +374,7 @@ class Wholesaler_Integration_Import_Products {
         return $this->js_service->map( $product_obj );
     }
 
-    private function map_target_product_data( $product_obj ) {
+    private function map_mada_product_data( $product_obj ) {
         return $this->mada_service->map( $product_obj );
     }
 

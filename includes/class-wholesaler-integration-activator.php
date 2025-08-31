@@ -41,7 +41,7 @@ class Wholesaler_Integration_Activator {
 			sku VARCHAR(100) UNIQUE NOT NULL,
 			brand VARCHAR(100) DEFAULT NULL,
 			product_data JSON NULL,
-			status VARCHAR(12) NOT NULL DEFAULT 'Pending',
+			status VARCHAR(12) NOT NULL DEFAULT '" . Status_Enum::PENDING->value . "',
 			created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
 			updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
 			PRIMARY KEY (id)

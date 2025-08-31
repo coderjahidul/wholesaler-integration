@@ -1,4 +1,5 @@
 <?php
+
 // fetch js product api
 function wholesaler_fetch_js_product_api() {
     // get wholesaler_js_url
@@ -183,13 +184,13 @@ function insert_product_js_api_to_database() {
         // Insert or update by SKU
         $sql = $wpdb->prepare(
             "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
-            VALUES ('JS', %s, %s, %s, 'Pending', NOW(), NOW())
+            VALUES ('JS', %s, %s, %s, %s, NOW(), NOW())
             ON DUPLICATE KEY UPDATE 
                 brand = VALUES(brand),
                 product_data = VALUES(product_data),
-                status = 'Pending',
+                status = %s,
                 updated_at = NOW()",
-            $sku, $brand, $product_data
+            $sku, $brand, $product_data, Status_Enum::PENDING->value, Status_Enum::PENDING->value
         );
 
         $wpdb->query($sql);
@@ -247,13 +248,13 @@ function insert_product_mada_api_to_database() {
         // Prepare SQL
         $sql = $wpdb->prepare(
             "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
-            VALUES ('MADA', %s, %s, %s, 'Pending', NOW(), NOW())
+            VALUES ('MADA', %s, %s, %s, %s, NOW(), NOW())
             ON DUPLICATE KEY UPDATE 
                 brand = VALUES(brand),
                 product_data = VALUES(product_data),
-                status = 'Pending',
+                status = %s,
                 updated_at = NOW()",
-            $sku, $brand, $product_data
+            $sku, $brand, $product_data, Status_Enum::PENDING->value, Status_Enum::PENDING->value
         );
 
         // Execute query
@@ -309,13 +310,13 @@ function insert_product_aren_api_to_database() {
         // Insert or update by SKU
         $sql = $wpdb->prepare(
             "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
-            VALUES ('AREN', %s, %s, %s, 'Pending', NOW(), NOW())
+            VALUES ('AREN', %s, %s, %s, %s, NOW(), NOW())
             ON DUPLICATE KEY UPDATE 
                 brand = VALUES(brand),
                 product_data = VALUES(product_data),
-                status = 'Pending',
+                status = %s,
                 updated_at = NOW()",
-            $sku, $brand, $product_data
+            $sku, $brand, $product_data, Status_Enum::PENDING->value, Status_Enum::PENDING->value
         );
 
         $wpdb->query($sql);
