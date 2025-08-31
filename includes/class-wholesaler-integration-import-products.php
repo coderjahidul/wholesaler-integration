@@ -9,6 +9,8 @@ if ( file_exists( WHOLESALER_PLUGIN_PATH . '/vendor/autoload.php' ) ) {
 
 // Require services and helpers
 require_once __DIR__ . '/services/class-js-wholesaler-service.php';
+require_once __DIR__ . '/services/class-mada-wholesaler-service.php';
+require_once __DIR__ . '/services/class-aren-wholesaler-service.php';
 require_once __DIR__ . '/traits/logs.php';
 require_once __DIR__ . '/helpers/class-import-helpers.php';
 
@@ -23,6 +25,8 @@ class Wholesaler_Integration_Import_Products {
     private $table_name;
     private $product_type = 'variable'; // enum: simple, variable
     private $js_service;
+    private $mada_service;
+    private $aren_service;
     private $helpers;
 
     public function __construct( string $website_url, string $consumer_key, string $consumer_secret ) {
@@ -147,6 +151,9 @@ class Wholesaler_Integration_Import_Products {
                 try {
                     $this->log_message( "Processing product ID: {$product->id}" );
 
+                    // print_r($product);
+                    // die('die');
+
                     // Import single product
                     $result = $this->import_single_product( $product );
 
@@ -187,7 +194,6 @@ class Wholesaler_Integration_Import_Products {
     private function import_single_product( $product ) {
         try {
             // Retrieve product data
-            $serial_id       = $product->id;
             $wholesaler_name = $product->wholesaler_name;
 
             // map product data based on the wholesaler.
@@ -211,6 +217,7 @@ class Wholesaler_Integration_Import_Products {
             ];
         }
     }
+
     public function map_product_data( string $wholesaler_name, $product ) {
 
         // define default mapped product
@@ -225,11 +232,11 @@ class Wholesaler_Integration_Import_Products {
                 break;
             case 'MADA':
                 echo 'mada';
-                // $mapped_product = $this->map_target_product_data( $product );
+                $mapped_product = $this->map_target_product_data( $product );
                 break;
             case 'AREN':
                 echo 'aren';
-                // $mapped_product = $this->map_walmart_product_data( $product );
+                $mapped_product = $this->map_aren_product_data( $product );
                 break;
             default:
                 $mapped_product = $product;
@@ -358,6 +365,16 @@ class Wholesaler_Integration_Import_Products {
 
     private function map_js_product_data( $product_obj ) {
         return $this->js_service->map( $product_obj );
+    }
+
+    private function map_target_product_data( $product_obj ) {
+        return "mada service";
+        // return $this->mada_service->map( $product_obj );
+    }
+
+    private function map_aren_product_data( $product_obj ) {
+        return "aren service";
+        // return $this->aren_service->map( $product_obj );
     }
 
 }
