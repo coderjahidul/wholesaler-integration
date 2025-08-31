@@ -72,6 +72,7 @@ register_deactivation_hook( __FILE__, 'deactivate_wholesaler_integration' );
  * The core plugin class that is used to define internationalization,
  * admin-specific hooks, and public-facing site hooks.
  */
+require plugin_dir_path( __FILE__ ) . 'includes/enums/status-enum.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-brands-api.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration-import-products.php';
@@ -117,7 +118,7 @@ function calculate_product_price_with_margin( $wholesaler_price, $brand ) {
     $profit_margin = (float) get_option( 'wholesaler_retail_margin', 0 );
 
     // If brand is Mediolano, return wholesale price only
-    if ( strtolower($brand) === 'mediolano' ) {
+    if ( strtolower( $brand ) === 'mediolano' ) {
         return number_format( $wholesaler_price, 2, '.', '' );
     }
 

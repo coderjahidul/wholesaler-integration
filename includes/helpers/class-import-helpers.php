@@ -55,7 +55,7 @@ class Wholesaler_Import_Helpers {
 
             $wpdb->update(
                 $table_name,
-                [ 'status' => 'completed' ],
+                [ 'status' => Status_Enum::COMPLETED->value ],
                 [ 'id' => $serial_id ],
                 [ '%s' ],
                 [ '%d' ]

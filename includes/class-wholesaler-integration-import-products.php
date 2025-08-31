@@ -27,6 +27,7 @@ class Wholesaler_Integration_Import_Products {
     private $js_service;
     private $mada_service;
     private $aren_service;
+    private $statuses;
     private $helpers;
 
     public function __construct( string $website_url, string $consumer_key, string $consumer_secret ) {
@@ -109,7 +110,7 @@ class Wholesaler_Integration_Import_Products {
             $this->table_name = $products_table;
 
             // SQL query
-            $sql = $wpdb->prepare( "SELECT * FROM {$products_table} WHERE status = %s LIMIT %d", 'Pending', $limit );
+            $sql = $wpdb->prepare( "SELECT * FROM {$products_table} WHERE status = %s LIMIT %d", Status_Enum::PENDING->value, $limit );
 
             // Retrieve pending products from the database
             $products = $wpdb->get_results( $sql );
