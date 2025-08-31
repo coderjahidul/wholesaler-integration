@@ -231,14 +231,15 @@ class Wholesaler_Integration_Import_Products {
 
         switch ( $wholesaler_name ) {
             case 'JS':
+                echo 'Wholesaler: JS';
                 $mapped_product = $this->map_js_product_data( $product );
                 break;
             case 'MADA':
-                echo 'mada';
-                $mapped_product = $this->map_target_product_data( $product );
+                echo 'Wholesaler: Mada';
+                $mapped_product = $this->map_mada_product_data( $product );
                 break;
             case 'AREN':
-                echo 'aren';
+                echo 'Wholesaler: Aren';
                 $mapped_product = $this->map_aren_product_data( $product );
                 break;
             default:
@@ -306,7 +307,7 @@ class Wholesaler_Integration_Import_Products {
             $product_data = [
                 'name'        => $product['name'],
                 'sku'         => $product['sku'],
-                'type'        => 'variable',
+                'type'        => 'variable', // TODO: need check is simple or variable product
                 'description' => $product['description'],
                 'attributes'  => $product['attributes'],
                 'categories'  => $product['category_terms'],
@@ -373,7 +374,7 @@ class Wholesaler_Integration_Import_Products {
         return $this->js_service->map( $product_obj );
     }
 
-    private function map_target_product_data( $product_obj ) {
+    private function map_mada_product_data( $product_obj ) {
         return $this->mada_service->map( $product_obj );
     }
 
