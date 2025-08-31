@@ -165,11 +165,24 @@ class Wholesaler_AREN_Wholesaler_Service {
      */
     private function build_images_payload( $payload ) {
         $result = [];
-        
-        if ( isset( $payload['images']['image']['url'] ) ) {
-            $result[] = [ 'src' => $payload['images']['image']['url'] ];
+
+        if ( isset( $payload['images']['image'] ) ) {
+            $images = $payload['images']['image'];
+
+            // Case 1: Single image (associative array)
+            if ( isset( $images['url'] ) ) {
+                $result[] = [ 'src' => $images['url'] ];
+            }
+            // Case 2: Multiple images (array of associative arrays)
+            elseif ( is_array( $images ) ) {
+                foreach ( $images as $img ) {
+                    if ( isset( $img['url'] ) ) {
+                        $result[] = [ 'src' => $img['url'] ];
+                    }
+                }
+            }
         }
-        
+
         return $result;
     }
     
