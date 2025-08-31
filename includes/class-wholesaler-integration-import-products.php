@@ -263,6 +263,9 @@ class Wholesaler_Integration_Import_Products {
         try {
             $this->log_message( "Updating existing product ID: {$existing_product_id}" );
 
+            // TODO: prepare product data for variable product.
+            // TODO: update the product price and stock only.
+
             $product_data = [
                 'name'          => $product['name'],
                 'description'   => $product['description'],
@@ -277,7 +280,7 @@ class Wholesaler_Integration_Import_Products {
             // Set product wholesaler price
             update_post_meta( $existing_product_id, '_wholesaler_price', $product['wholesale_price'] );
 
-            // update stock variable product
+            // TODO: update stock variable product
 
             $this->log_message( "Successfully updated product ID: {$existing_product_id}" );
 
