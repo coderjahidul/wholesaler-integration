@@ -2,11 +2,18 @@
 add_action('rest_api_init', 'wholesaler_api_endpoints');
 
 function wholesaler_api_endpoints() {
-    
-    // urls http://localhost/wholesaler/v1/products/js
-    register_rest_route('wholesaler/v1', '/products/js', array(
+    // Endpoint 1: Download JS products
+   register_rest_route('wholesaler/v1', '/download-js-products', array(
         'methods' => 'GET',
-        'callback' => 'wholesaler_fetch_product_js_api',
+        'callback' => 'wholesaler_download_js_products',
+        'permission_callback' => '__return_true', // Add proper permissions
+    ));
+
+    // Endpoint 2: Insert JS products from file to DB
+    register_rest_route('wholesaler/v1', '/insert-js-products', array(
+        'methods' => 'GET',
+        'callback' => 'wholesaler_insert_js_products_from_file_stream',
+        'permission_callback' => '__return_true',
     ));
 
     // urls http://localhost/wholesaler/v1/products/mada
@@ -27,10 +34,6 @@ function wholesaler_api_endpoints() {
 		'callback' => 'wholesaler_truncate_products_table',
 		'permission_callback' => '__return_true' // allow external, but we'll check secret key
 	));
-}
-
-function wholesaler_fetch_product_js_api() {
-    return insert_product_js_api_to_database();
 }
 
 function wholesaler_fetch_product_mada_api(){

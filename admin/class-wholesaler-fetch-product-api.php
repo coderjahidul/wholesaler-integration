@@ -149,62 +149,92 @@ function wholesaler_fetch_aren_product_api() {
     
 }
 
-// insert product js api to database
-function insert_product_js_api_to_database() {
+function wholesaler_download_js_products() {
+    $response = wholesaler_fetch_js_product_api();
+
+    if (!$response) {
+        return [
+            'success' => false,
+            'message' => 'Failed to fetch API data.'
+        ];
+    }
+
+    $upload_dir = wp_upload_dir();
+    $file_path = $upload_dir['basedir'] . '/wholesaler_js_products.xml';
+
+    file_put_contents($file_path, $response);
+
+    return [
+        'success' => true,
+        'message' => 'Data saved to file successfully.',
+        'file_path' => $file_path
+    ];
+}
+
+// insert js products
+function wholesaler_insert_js_products_from_file_stream() {
     global $wpdb;
 
-    $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
-    $api_response = wholesaler_fetch_js_product_api();
+    $upload_dir = wp_upload_dir();
+    $file_path = $upload_dir['basedir'] . '/wholesaler_js_products.xml'; // or .json if needed
 
-    // Convert XML → array
-    $xml  = simplexml_load_string($api_response);
-    $json = json_encode($xml);
-    $product_list = json_decode($json, true);
+    if (!file_exists($file_path)) {
+        return [
+            'success' => false,
+            'message' => 'Data file not found. Please download first.'
+        ];
+    }
 
-    // Get all product brands
+    // Get allowed brands
     $brands = get_all_product_brands();
-
-    // Convert all brands to lowercase for comparison
     $brands_upper = array_map('strtoupper', $brands);
 
-    if (!isset($product_list['articles']['article'])) {
-        return;
+    $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
+
+    // Initialize XMLReader
+    $reader = new XMLReader();
+    $reader->open($file_path);
+
+    while ($reader->read()) {
+        if ($reader->nodeType == XMLReader::ELEMENT && $reader->name == 'article') {
+            $node = new SimpleXMLElement($reader->readOuterXML());
+
+            $sku = (string) ($node['sku'] ?? '');
+            $brand = isset($node->brand->name) ? strtoupper((string) $node->brand->name) : '';
+
+            // Skip if brand not in allowed list
+            if (!in_array($brand, $brands_upper)) continue;
+
+            $product_data = json_encode($node);
+
+            // Insert or update product
+            $sql = $wpdb->prepare(
+                "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
+                VALUES ('JS', %s, %s, %s, %s, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE 
+                    brand = VALUES(brand),
+                    product_data = VALUES(product_data),
+                    status = %s,
+                    updated_at = NOW()",
+                $sku,
+                $brand,
+                $product_data,
+                Status_Enum::PENDING->value,
+                Status_Enum::PENDING->value
+            );
+
+            $wpdb->query($sql);
+        }
     }
 
-    foreach ($product_list['articles']['article'] as $article) {
-        // get product data
-        $product_data = json_encode($article);
-        // Extract values
-        $sku = $article['@attributes']['sku'] ?? null;
-        $brand = $article['brand']['name'] ?? null; // if exists
+    $reader->close();
 
-        // Skip if brand is not in the allowed list 
-        if (!in_array($brand, $brands_upper)){ continue; }
-
-        // Insert or update by SKU
-        $sql = $wpdb->prepare(
-            "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
-            VALUES ('JS', %s, %s, %s, %s, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE 
-                brand = VALUES(brand),
-                product_data = VALUES(product_data),
-                status = %s,
-                updated_at = NOW()",
-            $sku, $brand, $product_data, Status_Enum::PENDING->value, Status_Enum::PENDING->value
-        );
-
-        $wpdb->query($sql);
-    }
-
-    // Success Total Products insert
-    if(empty($product_list['articles']['article'])){
-        echo("No products found in API response");
-        return;
-    }else{
-        $total_products = count($product_list['articles']['article']);
-        echo ("JS Product data inserted successfully. Total Products: $total_products");
-    }
+    return [
+        'success' => true,
+        'message' => 'Products inserted/updated successfully (streamed).'
+    ];
 }
+
 
 
 
