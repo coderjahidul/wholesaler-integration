@@ -149,6 +149,7 @@ function wholesaler_fetch_aren_product_api() {
     
 }
 
+// download js products
 function wholesaler_download_js_products() {
     $response = wholesaler_fetch_js_product_api();
 
@@ -235,70 +236,97 @@ function wholesaler_insert_js_products_from_file_stream() {
     ];
 }
 
+// download mada products
+function wholesaler_download_mada_products() {
+    $upload_dir = wp_upload_dir();
+    $extract_path = $upload_dir['basedir'] . "/mada_products/";
 
+    // Fetch API
+    $xml_content = wholesaler_fetch_mada_product_api(); // your CURL function already saves & extracts ZIP
+
+    if (!$xml_content) {
+        return [
+            'success' => false,
+            'message' => 'Failed to fetch MADA API data.'
+        ];
+    }
+
+    // Save XML to extracted folder
+    if (!file_exists($extract_path)) {
+        mkdir($extract_path, 0755, true);
+    }
+    $xml_file = $extract_path . "products.xml";
+    file_put_contents($xml_file, $xml_content);
+
+    return [
+        'success' => true,
+        'message' => 'MADA API data downloaded successfully.',
+        'file_path' => $xml_file
+    ];
+}
 
 
 
 // insert product mada api to database
-function insert_product_mada_api_to_database() {
+function wholesaler_insert_mada_products_from_file_stream() {
     global $wpdb;
+
+    $upload_dir = wp_upload_dir();
+    $xml_file = $upload_dir['basedir'] . "/mada_products/products.xml";
+
+    if (!file_exists($xml_file)) {
+        return [
+            'success' => false,
+            'message' => 'MADA products XML file not found. Please download first.'
+        ];
+    }
 
     $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
 
-    // Fetch XML
-    $xml_content = wholesaler_fetch_mada_product_api();
-    if (! $xml_content) {
-        return;
+    // Stream process XML using XMLReader
+    $reader = new XMLReader();
+    $reader->open($xml_file);
+
+    $total_inserted = 0;
+
+    while ($reader->read()) {
+        if ($reader->nodeType == XMLReader::ELEMENT && $reader->name == 'PRODUCT') {
+            $node = new SimpleXMLElement($reader->readOuterXML());
+
+            $sku = (string) ($node->ID ?? '');
+            $brand = (string) ($node->PRODUCER ?? '');
+            $product_data = json_encode($node);
+
+            if (empty($sku)) continue;
+
+            // Insert or update in DB
+            $sql = $wpdb->prepare(
+                "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
+                VALUES ('MADA', %s, %s, %s, %s, NOW(), NOW())
+                ON DUPLICATE KEY UPDATE 
+                    brand = VALUES(brand),
+                    product_data = VALUES(product_data),
+                    status = %s,
+                    updated_at = NOW()",
+                $sku,
+                $brand,
+                $product_data,
+                Status_Enum::PENDING->value,
+                Status_Enum::PENDING->value
+            );
+
+            $wpdb->query($sql);
+            $total_inserted++;
+        }
     }
 
-    // Parse XML
-    $xml = simplexml_load_string($xml_content);
-    if (!$xml) {
-        return;
-    }
+    $reader->close();
 
-    // Convert to array
-    $json = json_encode($xml);
-    $product_list = json_decode($json, true);
-
-    if (empty($product_list['PRODUCTS']['PRODUCT'])) {
-        return;
-    }
-
-    foreach ($product_list['PRODUCTS']['PRODUCT'] as $product) {
-        // SKU
-        $sku = $product['ID'] ?? '';
-
-        // Brand (use PRODUCER instead of BRAND)
-        $brand = $product['PRODUCER'] ?? '';
-
-        // Encode product data
-        $product_data = wp_json_encode($product);
-
-        // Prepare SQL
-        $sql = $wpdb->prepare(
-            "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
-            VALUES ('MADA', %s, %s, %s, %s, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE 
-                brand = VALUES(brand),
-                product_data = VALUES(product_data),
-                status = %s,
-                updated_at = NOW()",
-            $sku, $brand, $product_data, Status_Enum::PENDING->value, Status_Enum::PENDING->value
-        );
-
-        // Execute query
-        $wpdb->query($sql);
-    }
-
-    // Success Total Products insert
-    if(empty($product_list['PRODUCTS']['PRODUCT'])) {
-        echo("No products found in API response");
-        return;
-    }else{
-        $total_products = count($product_list['PRODUCTS']['PRODUCT']);
-        echo ("MADA Product data inserted successfully. Total Products: $total_products");
-    }
+    return [
+        'success' => true,
+        'message' => "MADA products inserted/updated successfully.",
+        'total_inserted' => $total_inserted
+    ];
 }
 
 

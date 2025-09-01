@@ -16,6 +16,20 @@ function wholesaler_api_endpoints() {
         'permission_callback' => '__return_true',
     ));
 
+    // Endpoint 1: Download MADA API
+    register_rest_route('wholesaler/v1', '/download-mada-products', array(
+        'methods' => 'GET',
+        'callback' => 'wholesaler_download_mada_products',
+        'permission_callback' => '__return_true', // replace with proper capability
+    ));
+
+    // Endpoint 2: Stream process and insert MADA products
+    register_rest_route('wholesaler/v1', '/insert-mada-products', array(
+        'methods' => 'GET',
+        'callback' => 'wholesaler_insert_mada_products_from_file_stream',
+        'permission_callback' => '__return_true',
+    ));
+
     // urls http://localhost/wholesaler/v1/products/mada
     register_rest_route('wholesaler/v1', '/products/mada', array(
         'methods' => 'GET',
