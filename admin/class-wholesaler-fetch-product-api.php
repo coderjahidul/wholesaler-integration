@@ -143,9 +143,7 @@ function wholesaler_fetch_aren_product_api() {
     $xml_file = $extract_path . "oferta-produktow-pelna.xml";
 
     // API response ফাইলে সেভ করা
-    // file_put_contents($xml_file, $response);
-    // আবার পড়া ও return করা
-    return file_get_contents($xml_file);
+    return file_put_contents($xml_file, $response);
     
 }
 
@@ -331,11 +329,22 @@ function wholesaler_insert_mada_products_from_file_stream() {
 
 
 // insert product aren api to database
-function insert_product_aren_api_to_database() {
+function wholesaler_insert_aren_products_from_file_stream() {
     global $wpdb;
+    // WordPress upload dir বের করা
+    $upload_dir   = wp_upload_dir();
+    $extract_path = $upload_dir['basedir'] . "/aren_products/";
+
+    if (!file_exists($extract_path)) {
+        wp_mkdir_p($extract_path);
+    }
+
+    // XML file 
+    $xml_file = $extract_path . "oferta-produktow-pelna.xml";
 
     $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
-    $api_response = wholesaler_fetch_aren_product_api();
+    // reed XML
+    $api_response = file_get_contents($xml_file);
     
     // Load XML
     $xml = simplexml_load_string($api_response, "SimpleXMLElement", LIBXML_NOCDATA);

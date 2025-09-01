@@ -30,17 +30,19 @@ function wholesaler_api_endpoints() {
         'permission_callback' => '__return_true',
     ));
 
-    // urls http://localhost/wholesaler/v1/products/mada
-    register_rest_route('wholesaler/v1', '/products/mada', array(
-        'methods' => 'GET',
-        'callback' => 'wholesaler_fetch_product_mada_api',
-    ));
+    // Endpoint 1: Download AREN API
+    register_rest_route('wholesaler/v1', '/aren/download', [
+        'methods'  => 'GET',
+        'callback' => 'wholesaler_fetch_aren_product_api',
+        'permission_callback' => '__return_true',
+    ]);
 
-    // urls http://localhost/wholesaler/v1/products/aren
-    register_rest_route('wholesaler/v1', '/products/aren', array(
-        'methods' => 'GET',
-        'callback' => 'wholesaler_fetch_product_aren_api',
-    ));
+    // Endpoint 2: Stream process and insert AREN products
+    register_rest_route('wholesaler/v1', '/aren/insert', [
+        'methods'  => 'GET',
+        'callback' => 'wholesaler_insert_aren_products_from_file_stream',
+        'permission_callback' => '__return_true',
+    ]);
 
     // https://kobiecy-akcent.pl/wp-json/wholesaler/v1/products/truncate?key=MY_SECRET_KEY_123
 	register_rest_route('wholesaler/v1', '/products/truncate', array(
