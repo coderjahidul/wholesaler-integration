@@ -281,7 +281,6 @@ function wholesaler_insert_mada_products_from_file_stream() {
 
     $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
 
-    // Stream process XML using XMLReader
     $reader = new XMLReader();
     $reader->open($xml_file);
 
@@ -291,13 +290,94 @@ function wholesaler_insert_mada_products_from_file_stream() {
         if ($reader->nodeType == XMLReader::ELEMENT && $reader->name == 'PRODUCT') {
             $node = new SimpleXMLElement($reader->readOuterXML());
 
-            $sku = (string) ($node->ID ?? '');
-            $brand = (string) ($node->PRODUCER ?? '');
-            $product_data = json_encode($node);
+            // Base fields
+            $product = [
+                'ID' => (string) $node->ID,
+                'NAME' => (string) $node->NAME,
+                'DESC' => (string) $node->DESC,
+                'PRODUCER' => (string) $node->PRODUCER,
+                'PRODUCER_ADDRESS' => (string) $node->PRODUCER_ADDRESS,
+                'PRODUCER_SECURITY_INFO' => (string) $node->PRODUCER_SECURITY_INFO,
+                'FLAGS' => [],
+                'PRICE' => (string) $node->PRICE,
+                'VAT' => (string) $node->VAT,
+                'CATEGORIES' => [],
+                'MODELS' => [],
+                'ATTRIBUTES' => [],
+                'IMAGES' => []
+            ];
+
+            // FLAGS
+            if (isset($node->FLAGS->FLAG)) {
+                $product['FLAGS']['FLAG'] = (string) $node->FLAGS->FLAG;
+            }
+
+            // CATEGORIES
+            if (isset($node->CATEGORIES->CATEGORY)) {
+                $cat = $node->CATEGORIES->CATEGORY;
+                $product['CATEGORIES']['CATEGORY'] = [
+                    '_c1' => (string) $cat['c1'],
+                    '_c2' => (string) $cat['c2'],
+                    '_c3' => (string) $cat['c3'],
+                    '__cdata' => (string) $cat
+                ];
+            }
+
+            // MODELS (supports multiple MODEL elements)
+            if (isset($node->MODELS->MODEL)) {
+                $models = [];
+                foreach ($node->MODELS->MODEL as $model_node) {
+                    $model = [
+                        'COLOR' => (string) $model_node->COLOR,
+                        'SIZE' => []
+                    ];
+
+                    if (isset($model_node->SIZE)) {
+                        foreach ($model_node->SIZE as $size) {
+                            $model['SIZE'][] = [
+                                '_amount' => (string) $size['amount'],
+                                '_ean' => (string) $size['ean'],
+                                '_pattern' => (string) $size['pattern'],
+                                '_pattern_img_id' => (string) $size['pattern_img_id'],
+                                '__text' => (string) $size
+                            ];
+                        }
+                    }
+                    $models[] = $model;
+                }
+
+                // If only one MODEL, keep as object; else as array
+                $product['MODELS']['MODEL'] = count($models) === 1 ? $models[0] : $models;
+            }
+
+            // ATTRIBUTES
+            if (isset($node->ATTRIBUTES->ATTRIBUTE)) {
+                $attr_node = $node->ATTRIBUTES->ATTRIBUTE;
+                $product['ATTRIBUTES']['ATTRIBUTE'] = [
+                    '_id' => (string) $attr_node['id'],
+                    '_group_id' => (string) $attr_node['group_id'],
+                    '__cdata' => (string) $attr_node
+                ];
+            }
+
+            // IMAGES
+            if (isset($node->IMAGES->IMG)) {
+                foreach ($node->IMAGES->IMG as $img) {
+                    $product['IMAGES']['IMG'][] = [
+                        '_id' => (string) $img['id'],
+                        '__text' => (string) $img
+                    ];
+                }
+            }
+
+            // Wrap in PRODUCT key
+            $product_data = ['PRODUCT' => $product];
+
+            $sku = $product['ID'];
+            $brand = $product['PRODUCER'];
 
             if (empty($sku)) continue;
 
-            // Insert or update in DB
             $sql = $wpdb->prepare(
                 "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
                 VALUES ('MADA', %s, %s, %s, %s, NOW(), NOW())
@@ -308,7 +388,7 @@ function wholesaler_insert_mada_products_from_file_stream() {
                     updated_at = NOW()",
                 $sku,
                 $brand,
-                $product_data,
+                wp_json_encode($product_data, JSON_UNESCAPED_UNICODE),
                 Status_Enum::PENDING->value,
                 Status_Enum::PENDING->value
             );
@@ -326,7 +406,6 @@ function wholesaler_insert_mada_products_from_file_stream() {
         'total_inserted' => $total_inserted
     ];
 }
-
 
 // insert product aren api to database
 function wholesaler_insert_aren_products_from_file_stream() {
