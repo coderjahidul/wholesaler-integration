@@ -29,6 +29,8 @@ class Wholesaler_JS_Wholesaler_Service {
         $variations    = [];
 
         if ( isset( $payload['units']['unit'] ) && is_array( $payload['units']['unit'] ) ) {
+
+            // Extract sizes and colors
             foreach ( $payload['units']['unit'] as $unit ) {
                 $size  = isset( $unit['size'] ) ? (string) $unit['size'] : '';
                 $color = isset( $unit['color'] ) ? (string) $unit['color'] : '';
@@ -40,6 +42,7 @@ class Wholesaler_JS_Wholesaler_Service {
                 }
             }
 
+            // Extract variations
             foreach ( $payload['units']['unit'] as $unit ) {
                 $unitSku  = $unit['@attributes']['sku'] ?? '';
                 $unitEan  = $unit['@attributes']['ean'] ?? '';
@@ -47,6 +50,7 @@ class Wholesaler_JS_Wholesaler_Service {
                 $color    = $unit['color'] ?? '';
                 $stockQty = isset( $unit['stock'] ) ? (int) $unit['stock'] : 0;
 
+                // push to variations
                 $variations[] = [
                     'sku'            => $unitSku,
                     'regular_price'  => (string) $product_regular_price,
