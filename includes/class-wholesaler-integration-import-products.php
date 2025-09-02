@@ -149,7 +149,6 @@ class Wholesaler_Integration_Import_Products {
 
             foreach ( $products as $product ) {
                 try {
-                    put_program_logs( "Processing product ID: {$product->id}" );
 
                     // Import single product
                     $result = $this->import_single_product( $product );
@@ -157,7 +156,6 @@ class Wholesaler_Integration_Import_Products {
                     if ( $result['success'] ) {
                         $imported_count++;
                         $this->mark_as_complete( $this->table_name, (int) $product->id );
-                        put_program_logs( "Successfully imported product ID: {$product->id}" );
                     } else {
                         $errors[] = "Product ID {$product->id}: " . $result['message'];
                         put_program_logs( "Failed to import product ID {$product->id}: " . $result['message'] );
@@ -327,7 +325,6 @@ class Wholesaler_Integration_Import_Products {
                 foreach ( $product['variations'] as $variation ) {
                     try {
                         $this->client->post( 'products/' . $product_id . '/variations', $variation );
-                        put_program_logs( "Created variation for product ID: {$product_id}" );
                     } catch (HttpClientException $e) {
                         put_program_logs( 'WooCommerce API error creating variation for product ' . $product_id . ': ' . $e->getMessage() );
                         continue;

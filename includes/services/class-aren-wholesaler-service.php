@@ -190,7 +190,7 @@ class Wholesaler_AREN_Wholesaler_Service {
             }
         }
 
-        put_program_logs( "Aren Attributes (final): " . json_encode( $attributes ) );
+        // put_program_logs( "Aren Attributes (final): " . json_encode( $attributes ) );
         return $attributes;
     }
 
@@ -218,7 +218,7 @@ class Wholesaler_AREN_Wholesaler_Service {
         }
 
         // put to log file
-        put_program_logs( "Aren Variations: " . json_encode( $variations ) );
+        // put_program_logs( "Aren Variations: " . json_encode( $variations ) );
 
         return $variations;
     }
@@ -272,22 +272,5 @@ class Wholesaler_AREN_Wholesaler_Service {
         ];
 
         return $variation;
-    }
-
-    private function create_single_attribute( array $combination ) {
-        $attributes = [];
-
-        if ( isset( $combination['attributes']['attribute'] ) && is_array( $combination['attributes']['attribute'] ) ) {
-            foreach ( $combination['attributes']['attribute'] as $attribute ) {
-                if ( isset( $attribute['name'] ) && isset( $attribute['value'] ) ) {
-                    $attributes[] = [
-                        'name'   => $attribute['name'],
-                        'option' => $attribute['value'],
-                    ];
-                }
-            }
-        }
-
-        return $attributes;
     }
 }
