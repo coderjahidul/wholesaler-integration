@@ -107,6 +107,7 @@ class Wholesaler_Admin_Settings {
                             ['GET', '/wp-json/wholesaler/v1/insert-aren-products', 'Insert AREN products from file to DB'],
 
                             ['POST', '/wp-json/wholesaler/v1/products/truncate?key=MY_SECRET_KEY_123', 'Truncate products table'],
+                            ['GET', '/wp-json/wholesaler/v1/import-products', 'Product Import Endpoint'],
                         ];
 
                         foreach ($endpoints as $ep) {
