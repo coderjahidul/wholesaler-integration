@@ -31,14 +31,14 @@ function wholesaler_api_endpoints() {
     ));
 
     // Endpoint 1: Download AREN API
-    register_rest_route('wholesaler/v1', '/aren/download', [
+    register_rest_route('wholesaler/v1', '/download-aren-products', [
         'methods'  => 'GET',
         'callback' => 'wholesaler_fetch_aren_product_api',
         'permission_callback' => '__return_true',
     ]);
 
     // Endpoint 2: Stream process and insert AREN products
-    register_rest_route('wholesaler/v1', '/aren/insert', [
+    register_rest_route('wholesaler/v1', '/insert-aren-products', [
         'methods'  => 'GET',
         'callback' => 'wholesaler_insert_aren_products_from_file_stream',
         'permission_callback' => '__return_true',

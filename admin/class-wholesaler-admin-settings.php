@@ -101,12 +101,12 @@ class Wholesaler_Admin_Settings {
                             ['POST', '/wp-json/wholesaler/v1/seed-brands', 'Seed brands'],
                             ['GET', '/wp-json/wholesaler/v1/download-js-products', 'Download JS products File'],
                             ['GET', '/wp-json/wholesaler/v1/download-mada-products', 'Download MADA products File'],
-                            ['GET', '/wp-json/wholesaler/v1/aren/download', 'Download AREN products File'],
+                            ['GET', '/wp-json/wholesaler/v1/download-aren-products', 'Download AREN products File'],
                             ['GET', '/wp-json/wholesaler/v1/insert-js-products', 'Insert JS products from file to DB'],
-                            ['GET', '/wp-json/wholesaler/v1/nsert-mada-products', 'Insert MADA products from file to DB'],
-                            ['GET', '/wp-json/wholesaler/v1/aren/insert', 'Insert AREN products from file to DB'],
+                            ['GET', '/wp-json/wholesaler/v1/insert-mada-products', 'Insert MADA products from file to DB'],
+                            ['GET', '/wp-json/wholesaler/v1/insert-aren-products', 'Insert AREN products from file to DB'],
 
-                            ['POST', '/wp-json/wholesaler/v1/products/truncate', 'Truncate products table'],
+                            ['POST', '/wp-json/wholesaler/v1/products/truncate?key=MY_SECRET_KEY_123', 'Truncate products table'],
                         ];
 
                         foreach ($endpoints as $ep) {
