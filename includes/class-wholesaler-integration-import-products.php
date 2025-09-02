@@ -309,7 +309,7 @@ class Wholesaler_Integration_Import_Products {
                 'sku'         => $product['sku'],
                 'type'        => 'variable', // TODO: need check is simple or variable product
                 'description' => $product['description'],
-                'attributes'  => $product['attributes'],
+                'attributes'  => $product['attributes'] ?? [],
                 'categories'  => $product['category_terms'],
             ];
             if ( !empty( $product['images_payload'] ) ) {

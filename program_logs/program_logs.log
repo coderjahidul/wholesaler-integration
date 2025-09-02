@@ -1,0 +1,56 @@
+Aren Attributes: 
+[
+    {
+        "name": "Size",
+        "position": 0,
+        "visible": true,
+        "variation": true,
+        "options": [
+            "65H"
+        ]
+    },
+    {
+        "name": "Color",
+        "position": 1,
+        "visible": true,
+        "variation": true,
+        "options": [
+            "Pomarańczowy"
+        ]
+    }
+] - 2025-09-02 06:07:41
+
+Aren Variations: 
+[
+    {
+        "sku": "AVABI1112#KOR#65H",
+        "regular_price": "18.2732",
+        "manage_stock": true,
+        "stock_quantity": 2,
+        "attributes": [
+            {
+                "name": "Color",
+                "option": "Koralowy"
+            },
+            {
+                "name": "Size",
+                "option": "65H"
+            }
+        ],
+        "meta_data": [
+            {
+                "key": "_price_value",
+                "value": "0"
+            },
+            {
+                "key": "_price_modifier",
+                "value": "+"
+            },
+            {
+                "key": "_default_price_netto",
+                "value": "35.8293"
+            }
+        ]
+    }
+] - 2025-09-02 06:07:41
+
