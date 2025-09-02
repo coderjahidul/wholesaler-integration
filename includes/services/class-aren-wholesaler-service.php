@@ -262,6 +262,7 @@ class Wholesaler_AREN_Wholesaler_Service {
         $variation = [
             'sku'            => $unique_sku,
             'regular_price'  => (string) $product_regular_price, 
+            'wholesale_price' => (string) $wholesaler_price,
             'manage_stock'   => true,
             'stock_quantity' => (int) ( $combination['quantity'] ?? 0 ),
             'attributes'     => [

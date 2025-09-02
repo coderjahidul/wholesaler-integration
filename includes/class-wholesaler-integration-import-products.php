@@ -311,13 +311,14 @@ class Wholesaler_Integration_Import_Products {
             // Create the product via API
             $wc_product = $this->client->post( 'products', $product_data );
             $product_id = $wc_product->id;
+            $wholesale_price = $product['variations'][0]['wholesale_price'] ?? $product['wholesale_price'];
 
             // Set product information
             wp_set_object_terms( $product_id, $this->product_type, 'product_type' );
             update_post_meta( $product_id, '_visibility', 'visible' );
 
             // Set product wholesaler price
-            update_post_meta( $product_id, '_wholesaler_price', $product['wholesale_price'] );
+            update_post_meta( $product_id, '_wholesaler_price',  $wholesale_price);
 
             // Update product category and tags
             $this->update_product_taxonomies( $product_id, $product );
