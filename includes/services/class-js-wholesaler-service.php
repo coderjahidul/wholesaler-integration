@@ -7,7 +7,7 @@ class Wholesaler_JS_Wholesaler_Service {
     public function map( $product_obj ) {
         $payload = is_string( $product_obj->product_data ) ? json_decode( $product_obj->product_data, true ) : (array) $product_obj->product_data;
 
-        $name        = isset( $payload['name'] ) && is_array( $payload['name'] ) ? ( $payload['name']['en'] ?? ( $payload['name']['pl'] ?? '' ) ) : ( $payload['name'] ?? '' );
+        $name = isset( $payload['name'] ) && is_array( $payload['name'] ) ? ( $payload['name']['en'] ?? ( $payload['name']['pl'] ?? '' ) ) : ( $payload['name'] ?? '' );
         if ( empty( $name ) && isset( $product_obj->sku ) ) {
             $name = $product_obj->sku;
         }
@@ -29,6 +29,8 @@ class Wholesaler_JS_Wholesaler_Service {
         $variations    = [];
 
         if ( isset( $payload['units']['unit'] ) && is_array( $payload['units']['unit'] ) ) {
+
+            // Extract sizes and colors
             foreach ( $payload['units']['unit'] as $unit ) {
                 $size  = isset( $unit['size'] ) ? (string) $unit['size'] : '';
                 $color = isset( $unit['color'] ) ? (string) $unit['color'] : '';
@@ -40,6 +42,7 @@ class Wholesaler_JS_Wholesaler_Service {
                 }
             }
 
+            // Extract variations
             foreach ( $payload['units']['unit'] as $unit ) {
                 $unitSku  = $unit['@attributes']['sku'] ?? '';
                 $unitEan  = $unit['@attributes']['ean'] ?? '';
@@ -47,17 +50,18 @@ class Wholesaler_JS_Wholesaler_Service {
                 $color    = $unit['color'] ?? '';
                 $stockQty = isset( $unit['stock'] ) ? (int) $unit['stock'] : 0;
 
+                // push to variations
                 $variations[] = [
-                    'sku'            => $unitSku,
-                    'regular_price'  => (string) $product_regular_price,
+                    'sku'             => $unitSku,
+                    'regular_price'   => (string) $product_regular_price,
                     'wholesale_price' => (string) $wholesaler_price,
-                    'manage_stock'   => true,
-                    'stock_quantity' => $stockQty,
-                    'attributes'     => [
+                    'manage_stock'    => true,
+                    'stock_quantity'  => $stockQty,
+                    'attributes'      => [
                         [ 'name' => 'Color', 'option' => $color ],
-                        [ 'name' => 'Size',  'option' => $size ],
+                        [ 'name' => 'Size', 'option' => $size ],
                     ],
-                    'meta_data'      => [
+                    'meta_data'       => [
                         [ 'key' => '_ean', 'value' => $unitEan ],
                     ],
                 ];
@@ -84,20 +88,26 @@ class Wholesaler_JS_Wholesaler_Service {
             ];
         }
 
+        // put attributes to log
+        put_program_logs( "JS Attributes: " . json_encode( $attributes ) );
+        // put variations to log
+        put_program_logs( "JS Variations: " . json_encode( $variations ) );
+
         return [
-            'name'           => $name,
-            'sku'            => (string) ( $product_obj->sku ?? '' ),
-            'brand'          => $brand,
-            'description'    => $description,
-            'regular_price'  => (string) $product_regular_price,
-            'sale_price'     => '',
+            'name'            => $name,
+            'sku'             => (string) ( $product_obj->sku ?? '' ),
+            'brand'           => $brand,
+            'description'     => $description,
+            'regular_price'   => (string) $product_regular_price,
+            'sale_price'      => '',
             'wholesale_price' => (string) $wholesaler_price,
-            'images_payload' => $images_payload,
-            'categories'     => $categories_terms,
-            'category_terms' => array_map( function ( $name ) { return [ 'name' => $name ]; }, $categories_terms ),
-            'tags'           => [],
-            'attributes'     => $attributes,
-            'variations'     => $variations,
+            'images_payload'  => $images_payload,
+            'categories'      => $categories_terms,
+            'category_terms'  => array_map( function ($name) {
+                return [ 'name' => $name ]; }, $categories_terms ),
+            'tags'            => [],
+            'attributes'      => $attributes,
+            'variations'      => $variations,
         ];
     }
 
@@ -142,4 +152,4 @@ class Wholesaler_JS_Wholesaler_Service {
 
         return $result;
     }
-} 
+}
