@@ -47,13 +47,13 @@ class Wholesaler_Integration_Import_Products {
                 'timeout'    => 400,
             ]
         );
-        
+
 
         // Init services/helpers
-        $this->js_service = new Wholesaler_JS_Wholesaler_Service();
+        $this->js_service   = new Wholesaler_JS_Wholesaler_Service();
         $this->mada_service = new Wholesaler_MADA_Wholesaler_Service();
         $this->aren_service = new Wholesaler_AREN_Wholesaler_Service();
-        $this->helpers    = new Wholesaler_Import_Helpers();
+        $this->helpers      = new Wholesaler_Import_Helpers();
     }
 
     /**
@@ -86,11 +86,10 @@ class Wholesaler_Integration_Import_Products {
         $limit = $request->get_param( 'limit' );
 
         try {
-            $this->log_message( "REST API request received with limit: {$limit}" );
             $result = $this->import_products_to_woocommerce( $limit );
             return new \WP_REST_Response( $result, 200 );
         } catch (Exception $e) {
-            $this->log_message( "REST API error: " . $e->getMessage() );
+            put_program_logs( "REST API error: " . $e->getMessage() );
             return new \WP_REST_Response( [
                 'success' => false,
                 'message' => 'Import failed: ' . $e->getMessage()
@@ -116,15 +115,14 @@ class Wholesaler_Integration_Import_Products {
             $products = $wpdb->get_results( $sql );
 
             if ( empty( $products ) ) {
-                $this->log_message( "No pending products found in database" );
+                put_program_logs( "No pending products found in database" );
                 return [];
             }
 
-            $this->log_message( "Found " . count( $products ) . " pending products in database" );
             return $products;
 
         } catch (Exception $e) {
-            $this->log_message( "Database error: " . $e->getMessage() );
+            put_program_logs( "Database error: " . $e->getMessage() );
             throw $e;
         }
     }
@@ -134,7 +132,6 @@ class Wholesaler_Integration_Import_Products {
      */
     public function import_products_to_woocommerce( $limit = 1 ) {
         try {
-            $this->log_message( "Starting product import process with limit: {$limit}" );
 
             // Get products from database
             $products = $this->get_products_from_db( $limit );
@@ -152,10 +149,7 @@ class Wholesaler_Integration_Import_Products {
 
             foreach ( $products as $product ) {
                 try {
-                    $this->log_message( "Processing product ID: {$product->id}" );
-
-                    // print_r($product);
-                    // die('die');
+                    put_program_logs( "Processing product ID: {$product->id}" );
 
                     // Import single product
                     $result = $this->import_single_product( $product );
@@ -163,20 +157,18 @@ class Wholesaler_Integration_Import_Products {
                     if ( $result['success'] ) {
                         $imported_count++;
                         $this->mark_as_complete( $this->table_name, (int) $product->id );
-                        $this->log_message( "Successfully imported product ID: {$product->id}" );
+                        put_program_logs( "Successfully imported product ID: {$product->id}" );
                     } else {
                         $errors[] = "Product ID {$product->id}: " . $result['message'];
-                        $this->log_message( "Failed to import product ID {$product->id}: " . $result['message'] );
+                        put_program_logs( "Failed to import product ID {$product->id}: " . $result['message'] );
                     }
 
                 } catch (Exception $e) {
                     $error_msg = "Product ID {$product->id}: " . $e->getMessage();
                     $errors[]  = $error_msg;
-                    $this->log_message( $error_msg );
+                    put_program_logs( $error_msg );
                 }
             }
-
-            $this->log_message( "Import process completed. Imported: {$imported_count}, Errors: " . count( $errors ) );
 
             return [
                 'success'  => true,
@@ -186,7 +178,7 @@ class Wholesaler_Integration_Import_Products {
             ];
 
         } catch (Exception $e) {
-            $this->log_message( "Import process failed: " . $e->getMessage() );
+            put_program_logs( "Import process failed: " . $e->getMessage() );
             throw $e;
         }
     }
@@ -213,7 +205,7 @@ class Wholesaler_Integration_Import_Products {
             }
 
         } catch (Exception $e) {
-            $this->log_message( "Error importing product {$product->id}: " . $e->getMessage() );
+            put_program_logs( "Error importing product {$product->id}: " . $e->getMessage() );
             return [
                 'success' => false,
                 'message' => $e->getMessage(),
@@ -229,7 +221,7 @@ class Wholesaler_Integration_Import_Products {
         // upper case wholesaler name
         $wholesaler_name = strtoupper( $wholesaler_name );
 
-        switch ( $wholesaler_name ) {
+        switch ($wholesaler_name) {
             case 'JS':
                 echo 'Wholesaler: JS';
                 $mapped_product = $this->map_js_product_data( $product );
@@ -262,7 +254,7 @@ class Wholesaler_Integration_Import_Products {
      */
     private function update_existing_product( int $existing_product_id, array $product ) {
         try {
-            $this->log_message( "Updating existing product ID: {$existing_product_id}" );
+            put_program_logs( "Updating existing product ID: {$existing_product_id}" );
 
             // TODO: prepare product data for variable product.
             // TODO: update the product price and stock only.
@@ -283,7 +275,7 @@ class Wholesaler_Integration_Import_Products {
 
             // TODO: update stock variable product
 
-            $this->log_message( "Successfully updated product ID: {$existing_product_id}" );
+            put_program_logs( "Successfully updated product ID: {$existing_product_id}" );
 
             return [
                 'success'    => true,
@@ -292,7 +284,7 @@ class Wholesaler_Integration_Import_Products {
             ];
 
         } catch (Exception $e) {
-            $this->log_message( "Error updating product {$existing_product_id}: " . $e->getMessage() );
+            put_program_logs( "Error updating product {$existing_product_id}: " . $e->getMessage() );
             throw $e;
         }
     }
@@ -302,7 +294,7 @@ class Wholesaler_Integration_Import_Products {
      */
     private function create_new_product( array $product ) {
         try {
-            $this->log_message( "Creating new product" );
+            put_program_logs( "Creating new product" );
 
             $product_data = [
                 'name'        => $product['name'],
@@ -325,7 +317,7 @@ class Wholesaler_Integration_Import_Products {
             update_post_meta( $product_id, '_visibility', 'visible' );
 
             // Set product wholesaler price
-            update_post_meta( $product_id, '_wholesaler_price', $product['wholesale_price'] );
+            // update_post_meta( $product_id, '_wholesaler_price', $product['wholesale_price'] );
 
             // Update product category and tags
             $this->update_product_taxonomies( $product_id, $product );
@@ -335,14 +327,13 @@ class Wholesaler_Integration_Import_Products {
                 foreach ( $product['variations'] as $variation ) {
                     try {
                         $this->client->post( 'products/' . $product_id . '/variations', $variation );
+                        put_program_logs( "Created variation for product ID: {$product_id}" );
                     } catch (HttpClientException $e) {
-                        $this->log_message( 'WooCommerce API error creating variation for product ' . $product_id . ': ' . $e->getMessage() );
+                        put_program_logs( 'WooCommerce API error creating variation for product ' . $product_id . ': ' . $e->getMessage() );
                         continue;
                     }
                 }
             }
-
-            $this->log_message( "Successfully created product ID: {$product_id}" );
 
             return [
                 'success'    => true,
@@ -351,7 +342,7 @@ class Wholesaler_Integration_Import_Products {
             ];
 
         } catch (Exception $e) {
-            $this->log_message( "Error creating product: " . $e->getMessage() );
+            put_program_logs( "Error creating product: " . $e->getMessage() );
             throw $e;
         }
     }
@@ -386,6 +377,6 @@ class Wholesaler_Integration_Import_Products {
 
 
 $website_url     = site_url();
-$consumer_key    = get_option('wholesaler_consumer_key', '');
-$consumer_secret = get_option('wholesaler_consumer_secret', '');
+$consumer_key    = get_option( 'wholesaler_consumer_key', '' );
+$consumer_secret = get_option( 'wholesaler_consumer_secret', '' );
 new Wholesaler_Integration_Import_Products( $website_url, $consumer_key, $consumer_secret );

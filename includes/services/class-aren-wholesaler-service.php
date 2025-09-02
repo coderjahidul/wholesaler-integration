@@ -18,39 +18,29 @@ class Wholesaler_AREN_Wholesaler_Service {
         // Extract categories
         $categories_terms = $this->parse_categories( $payload );
 
-        // Extract price and calculate retail price
-        $wholesaler_price      = $this->extract_price( $payload );
-        $product_regular_price = calculate_product_price_with_margin( $wholesaler_price, $brand );
-
         // Extract attributes and variations
         $attributes = $this->build_attributes( $payload );
-        $variations = $this->build_variations( $payload, $product_obj, $product_regular_price, $wholesaler_price );
+        $variations = $this->build_variations( $payload, $product_obj );
 
         // Extract EAN and other meta data
-        $ean   = $this->extract_ean( $payload );
-        $size  = $this->extract_size( $payload );
-        $color = $this->extract_color( $payload );
+        $ean = $this->extract_ean( $payload );
 
+        // return mapped data
         return [
-            'name'            => $name,
-            'sku'             => (string) ( $product_obj->sku ?? '' ),
-            'brand'           => $brand,
-            'description'     => $description,
-            'regular_price'   => (string) $product_regular_price,
-            'sale_price'      => '',
-            'wholesale_price' => (string) $wholesaler_price,
-            'images_payload'  => $images_payload,
-            'categories'      => $categories_terms,
-            'category_terms'  => array_map( function ($name) {
+            'name'           => $name,
+            'sku'            => (string) ( $product_obj->sku ?? '' ),
+            'brand'          => $brand,
+            'description'    => $description,
+            'images_payload' => $images_payload,
+            'categories'     => $categories_terms,
+            'category_terms' => array_map( function ($name) {
                 return [ 'name' => $name ];
             }, $categories_terms ),
-            'tags'            => [],
-            'attributes'      => $attributes,
-            'variations'      => $variations,
-            'meta_data'       => [
+            'tags'           => [],
+            'attributes'     => $attributes,
+            'variations'     => $variations,
+            'meta_data'      => [
                 [ 'key' => '_ean', 'value' => $ean ],
-                [ 'key' => '_aren_size', 'value' => $size ],
-                [ 'key' => '_aren_color', 'value' => $color ],
                 [ 'key' => '_aren_tax_rate', 'value' => $payload['tax']['value'] ?? '' ],
                 [ 'key' => '_aren_unit', 'value' => $payload['unit'] ?? '' ],
                 [ 'key' => '_aren_weight', 'value' => $payload['weight'] ?? '' ],
@@ -102,58 +92,12 @@ class Wholesaler_AREN_Wholesaler_Service {
     }
 
     /**
-     * Extract product price
-     */
-    private function extract_price( $payload ) {
-        // Try to get price from combinations first, then fallback to base price
-        if ( isset( $payload['combinations']['combination']['price_netto'] ) ) {
-            return (float) $payload['combinations']['combination']['price_netto'];
-        }
-
-        if ( isset( $payload['price_netto'] ) ) {
-            return (float) $payload['price_netto'];
-        }
-
-        return 0;
-    }
-
-    /**
      * Extract EAN code
      */
     private function extract_ean( $payload ) {
         if ( isset( $payload['attributes']['attribute'] ) && is_array( $payload['attributes']['attribute'] ) ) {
             foreach ( $payload['attributes']['attribute'] as $attr ) {
                 if ( isset( $attr['name'] ) && $attr['name'] === 'EAN' && isset( $attr['values']['value'] ) ) {
-                    return $attr['values']['value'];
-                }
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * Extract size information
-     */
-    private function extract_size( $payload ) {
-        if ( isset( $payload['attributes']['attribute'] ) && is_array( $payload['attributes']['attribute'] ) ) {
-            foreach ( $payload['attributes']['attribute'] as $attr ) {
-                if ( isset( $attr['name'] ) && $attr['name'] === 'Rozmiar' && isset( $attr['values']['value'] ) ) {
-                    return $attr['values']['value'];
-                }
-            }
-        }
-
-        return '';
-    }
-
-    /**
-     * Extract color information
-     */
-    private function extract_color( $payload ) {
-        if ( isset( $payload['attributes']['attribute'] ) && is_array( $payload['attributes']['attribute'] ) ) {
-            foreach ( $payload['attributes']['attribute'] as $attr ) {
-                if ( isset( $attr['name'] ) && $attr['name'] === 'Odcienie' && isset( $attr['values']['value'] ) ) {
                     return $attr['values']['value'];
                 }
             }
@@ -205,50 +149,27 @@ class Wholesaler_AREN_Wholesaler_Service {
     /**
      * Build WooCommerce attributes
      */
-    private function build_attributes( $payload ) {
+    private function build_attributes( array $payload ) {
         $attributes = [];
 
-        if ( isset( $payload['attributes']['attribute'] ) && is_array( $payload['attributes']['attribute'] ) ) {
-            $size_options  = [];
-            $color_options = [];
+        if ( isset( $payload['combinations']['combination'] ) ) {
+            $combination = $payload['combinations']['combination'];
 
-            foreach ( $payload['attributes']['attribute'] as $attr ) {
-                if ( isset( $attr['name'] ) && isset( $attr['values']['value'] ) ) {
-                    $attr_name  = $attr['name'];
-                    $attr_value = $attr['values']['value'];
-
-                    if ( $attr_name === 'Rozmiar' ) {
-                        $size_options[] = $attr_value;
-                    } elseif ( $attr_name === 'Odcienie' ) {
-                        $color_options[] = $attr_value;
+            // Handle single combination to build attribute structure
+            if ( isset( $combination['id'] ) ) {
+                $attributes[] = $this->create_single_attribute( $combination );
+            }
+            // Handle multiple combinations to build attribute structure
+            elseif ( is_array( $combination ) ) {
+                foreach ( $combination as $combo ) {
+                    if ( isset( $combo['id'] ) ) {
+                        $attributes[] = $this->create_single_attribute( $combo );
                     }
                 }
             }
-
-            // Add size attribute
-            if ( !empty( $size_options ) ) {
-                $attributes[] = [
-                    'name'      => 'Size',
-                    'position'  => 0,
-                    'visible'   => true,
-                    'variation' => true,
-                    'options'   => $size_options,
-                ];
-            }
-
-            // Add color attribute
-            if ( !empty( $color_options ) ) {
-                $attributes[] = [
-                    'name'      => 'Color',
-                    'position'  => 1,
-                    'visible'   => true,
-                    'variation' => true,
-                    'options'   => $color_options,
-                ];
-            }
         }
 
-        // put to log file
+        // Log the attributes for debugging
         put_program_logs( "Aren Attributes: " . json_encode( $attributes ) );
 
         return $attributes;
@@ -286,7 +207,7 @@ class Wholesaler_AREN_Wholesaler_Service {
     /**
      * Create individual variation
      */
-    private function create_variation( $combination, $product_obj ) {
+    private function create_variation( array $combination, object $product_obj ) {
 
         // extract price
         $price = $combination['price_netto'] ?? 0;
@@ -318,8 +239,8 @@ class Wholesaler_AREN_Wholesaler_Service {
             'manage_stock'   => true,
             'stock_quantity' => (int) ( $combination['quantity'] ?? 0 ),
             'attributes'     => [
-                [ 'name' => 'Color', 'option' => $color ],
                 [ 'name' => 'Size', 'option' => $size ],
+                [ 'name' => 'Color', 'option' => $color ],
             ],
             'meta_data'      => [
                 [ 'key' => '_price_value', 'value' => $combination['price_value'] ?? '' ],
@@ -329,5 +250,22 @@ class Wholesaler_AREN_Wholesaler_Service {
         ];
 
         return $variation;
+    }
+
+    private function create_single_attribute( array $combination ) {
+        $attributes = [];
+
+        if ( isset( $combination['attributes']['attribute'] ) && is_array( $combination['attributes']['attribute'] ) ) {
+            foreach ( $combination['attributes']['attribute'] as $attribute ) {
+                if ( isset( $attribute['name'] ) && isset( $attribute['value'] ) ) {
+                    $attributes[] = [
+                        'name'   => $attribute['name'],
+                        'option' => $attribute['value'],
+                    ];
+                }
+            }
+        }
+
+        return $attributes;
     }
 }

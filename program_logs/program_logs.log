@@ -1,40 +1,34 @@
+Processing product ID: 7 - 2025-09-02 07:03:46
+
 Aren Attributes: 
 [
-    {
-        "name": "Size",
-        "position": 0,
-        "visible": true,
-        "variation": true,
-        "options": [
-            "65H"
-        ]
-    },
-    {
-        "name": "Color",
-        "position": 1,
-        "visible": true,
-        "variation": true,
-        "options": [
-            "Pomarańczowy"
-        ]
-    }
-] - 2025-09-02 06:07:41
+    [
+        {
+            "name": "Kolor",
+            "option": "Denim"
+        },
+        {
+            "name": "Rozmiar",
+            "option": "65J"
+        }
+    ]
+] - 2025-09-02 07:03:46
 
 Aren Variations: 
 [
     {
-        "sku": "AVABI1112#KOR#65H",
-        "regular_price": "18.2732",
+        "sku": "AVABI1160#DEN#65J",
+        "regular_price": "22.3366",
         "manage_stock": true,
-        "stock_quantity": 2,
+        "stock_quantity": 1,
         "attributes": [
             {
-                "name": "Color",
-                "option": "Koralowy"
+                "name": "Size",
+                "option": "65J"
             },
             {
-                "name": "Size",
-                "option": "65H"
+                "name": "Color",
+                "option": "Denim"
             }
         ],
         "meta_data": [
@@ -48,9 +42,15 @@ Aren Variations:
             },
             {
                 "key": "_default_price_netto",
-                "value": "35.8293"
+                "value": "43.7967"
             }
         ]
     }
-] - 2025-09-02 06:07:41
+] - 2025-09-02 07:03:46
+
+Creating new product - 2025-09-02 07:03:46
+
+WooCommerce API error creating variation for product 154: Error: Invalid or duplicated SKU. [product_invalid_sku] - 2025-09-02 07:03:50
+
+Successfully imported product ID: 7 - 2025-09-02 07:03:50
 
