@@ -410,71 +410,56 @@ function wholesaler_insert_mada_products_from_file_stream() {
 // insert product aren api to database
 function wholesaler_insert_aren_products_from_file_stream() {
     global $wpdb;
-    // WordPress upload dir বের করা
-    $upload_dir   = wp_upload_dir();
-    $extract_path = $upload_dir['basedir'] . "/aren_products/";
-
-    if (!file_exists($extract_path)) {
-        wp_mkdir_p($extract_path);
-    }
-
-    // XML file 
-    $xml_file = $extract_path . "oferta-produktow-pelna.xml";
-
-    $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
-    // reed XML
-    $api_response = file_get_contents($xml_file);
     
-    // Load XML
-    $xml = simplexml_load_string($api_response, "SimpleXMLElement", LIBXML_NOCDATA);
-    if (!$xml) {
+    // WordPress upload dir
+    $upload_dir = wp_upload_dir();
+    $extract_path = $upload_dir['basedir'] . "/aren_products/";
+    $xml_file = $extract_path . "oferta-produktow-pelna.xml";
+    $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
+    
+    if (!file_exists($xml_file)) {
+        echo "XML file not found";
         return;
     }
-
-    // Convert to JSON & then array
-    $json = json_encode($xml, JSON_UNESCAPED_UNICODE);
-    $product_list = json_decode($json, true);
-
-    if (isset($product_list['product']) && isset($product_list['product']['id'])) {
-        $product_list['product'] = [$product_list['product']];
-    }
-
-    if (!isset($product_list['product'])) {
-        return;
-    }
-
-
-    foreach ($product_list['product'] as $product) {
-        // Basic info
-        $product_data = json_encode($product);
-        $sku   = $product['code'];
-        $brand = $product['producer'] ?? null;
-        if (is_array($brand)) {
-            $brand = implode(', ', $brand); // or just $brand[0]
+    
+    $reader = new XMLReader();
+    $reader->open($xml_file);
+    
+    $product_count = 0;
+    
+    while ($reader->read()) {
+        if ($reader->nodeType == XMLReader::ELEMENT && $reader->name == 'product') {
+            $node = simplexml_load_string($reader->readOuterXML(), "SimpleXMLElement", LIBXML_NOCDATA);
+            
+            if ($node) {
+                $json = json_encode($node, JSON_UNESCAPED_UNICODE);
+                $product = json_decode($json, true);
+                
+                $sku = $product['code'] ?? '';
+                $brand = $product['producer'] ?? '';
+                
+                if (is_array($brand)) {
+                    $brand = implode(', ', $brand);
+                }
+                
+                $product_data = json_encode($product);
+                
+                $sql = $wpdb->prepare(
+                    "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at) 
+                     VALUES ('AREN', %s, %s, %s, %s, NOW(), NOW()) 
+                     ON DUPLICATE KEY UPDATE brand = VALUES(brand), product_data = VALUES(product_data), status = %s, updated_at = NOW()",
+                    $sku, $brand, $product_data, Status_Enum::PENDING->value, Status_Enum::PENDING->value
+                );
+                
+                $wpdb->query($sql);
+                $product_count++;
+            }
         }
-
-        // Insert or update by SKU
-        $sql = $wpdb->prepare(
-            "INSERT INTO $table_name (wholesaler_name, sku, brand, product_data, status, created_at, updated_at)
-            VALUES ('AREN', %s, %s, %s, %s, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE 
-                brand = VALUES(brand),
-                product_data = VALUES(product_data),
-                status = %s,
-                updated_at = NOW()",
-            $sku, $brand, $product_data, Status_Enum::PENDING->value, Status_Enum::PENDING->value
-        );
-
-        $wpdb->query($sql);
     }
-
-    // Success Total Products insert
-    if(empty($product_list['product'])) {
-        echo("No products found in API response");
-        return;
-    }else{
-        $total_products = count($product_list['product']);
-        echo ("AREN Product data inserted successfully. Total Products: $total_products");
-    }
+    
+    $reader->close();
+    
+    echo $product_count > 0 
+        ? "AREN Product data inserted successfully. Total Products: $product_count"
+        : "No products found in XML file";
 }
-
