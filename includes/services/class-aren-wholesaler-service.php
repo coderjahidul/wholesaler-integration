@@ -153,25 +153,44 @@ class Wholesaler_AREN_Wholesaler_Service {
         $attributes = [];
 
         if ( isset( $payload['combinations']['combination'] ) ) {
-            $combination = $payload['combinations']['combination'];
+            $combinations = $payload['combinations']['combination'];
 
-            // Handle single combination to build attribute structure
-            if ( isset( $combination['id'] ) ) {
-                $attributes[] = $this->create_single_attribute( $combination );
+            if ( isset( $combinations['id'] ) ) {
+                $combinations = [ $combinations ]; // normalize to array
             }
-            // Handle multiple combinations to build attribute structure
-            elseif ( is_array( $combination ) ) {
-                foreach ( $combination as $combo ) {
-                    if ( isset( $combo['id'] ) ) {
-                        $attributes[] = $this->create_single_attribute( $combo );
+
+            $options_map = [];
+
+            foreach ( $combinations as $combo ) {
+                if ( isset( $combo['attributes']['attribute'] ) ) {
+                    foreach ( $combo['attributes']['attribute'] as $attr ) {
+                        $name  = $attr['name'];
+                        $value = $attr['value'];
+
+                        if ( !isset( $options_map[$name] ) ) {
+                            $options_map[$name] = [];
+                        }
+
+                        if ( !in_array( $value, $options_map[$name], true ) ) {
+                            $options_map[$name][] = $value;
+                        }
                     }
                 }
             }
+
+            // Build WooCommerce-ready attributes
+            foreach ( $options_map as $name => $options ) {
+                $attributes[] = [
+                    'name'      => $name,
+                    'slug'      => sanitize_title( $name ), // "pa_kolor"
+                    'visible'   => true,
+                    'variation' => true,
+                    'options'   => $options,
+                ];
+            }
         }
 
-        // Log the attributes for debugging
-        put_program_logs( "Aren Attributes: " . json_encode( $attributes ) );
-
+        put_program_logs( "Aren Attributes (final): " . json_encode( $attributes ) );
         return $attributes;
     }
 
@@ -208,19 +227,18 @@ class Wholesaler_AREN_Wholesaler_Service {
      * Create individual variation
      */
     private function create_variation( array $combination, object $product_obj ) {
-
-        // extract price
+        // Extract price
         $price = $combination['price_netto'] ?? 0;
 
-        // define default values
+        // Define default values
         $color = '';
         $size  = '';
 
-        // extract color and size keys
+        // Extract color and size keys
         $color_key = isset( $combination['attributes']['attribute'][0]['name'] ) ? $combination['attributes']['attribute'][0]['name'] : '';
         $size_key  = isset( $combination['attributes']['attribute'][1]['name'] ) ? $combination['attributes']['attribute'][1]['name'] : '';
 
-        // extract color and size values
+        // Extract color and size values
         $color_value = isset( $combination['attributes']['attribute'][0]['value'] ) ? $combination['attributes']['attribute'][0]['value'] : '';
         $size_value  = isset( $combination['attributes']['attribute'][1]['value'] ) ? $combination['attributes']['attribute'][1]['value'] : '';
 
@@ -232,15 +250,19 @@ class Wholesaler_AREN_Wholesaler_Service {
             $size = $size_value;
         }
 
+        // Generate a unique SKU
+        $sku        = $combination['code'] ?? $product_obj->sku;
+        $unique_sku = $sku . '-' . uniqid();
+
         // Build variation array
         $variation = [
-            'sku'            => $combination['code'] ?? $product_obj->sku,
+            'sku'            => $unique_sku,
             'regular_price'  => (string) $price, // TODO: calculate price with profit margin
             'manage_stock'   => true,
             'stock_quantity' => (int) ( $combination['quantity'] ?? 0 ),
             'attributes'     => [
-                [ 'name' => 'Size', 'option' => $size ],
-                [ 'name' => 'Color', 'option' => $color ],
+                [ 'name' => $color_key, 'option' => $color ],
+                [ 'name' => $size_key, 'option' => $size ],
             ],
             'meta_data'      => [
                 [ 'key' => '_price_value', 'value' => $combination['price_value'] ?? '' ],
