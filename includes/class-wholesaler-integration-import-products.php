@@ -317,7 +317,7 @@ class Wholesaler_Integration_Import_Products {
             update_post_meta( $product_id, '_visibility', 'visible' );
 
             // Set product wholesaler price
-            // update_post_meta( $product_id, '_wholesaler_price', $product['wholesale_price'] );
+            update_post_meta( $product_id, '_wholesaler_price', $product['wholesale_price'] );
 
             // Update product category and tags
             $this->update_product_taxonomies( $product_id, $product );

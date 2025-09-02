@@ -228,7 +228,11 @@ class Wholesaler_AREN_Wholesaler_Service {
      */
     private function create_variation( array $combination, object $product_obj ) {
         // Extract price
-        $price = $combination['price_netto'] ?? 0;
+        $wholesaler_price = $combination['price_netto'] ?? 0;
+        $brand = $product_obj->brand ?? '';
+
+        // calculate aren product price with margin
+        $product_regular_price = calculate_product_price_with_margin( $wholesaler_price, $brand );
 
         // Define default values
         $color = '';
@@ -257,7 +261,7 @@ class Wholesaler_AREN_Wholesaler_Service {
         // Build variation array
         $variation = [
             'sku'            => $unique_sku,
-            'regular_price'  => (string) $price, // TODO: calculate price with profit margin
+            'regular_price'  => (string) $product_regular_price, 
             'manage_stock'   => true,
             'stock_quantity' => (int) ( $combination['quantity'] ?? 0 ),
             'attributes'     => [
