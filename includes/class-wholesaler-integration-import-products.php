@@ -130,8 +130,11 @@ class Wholesaler_Integration_Import_Products {
     /**
      * Import products to WooCommerce using REST API
      */
-    public function import_products_to_woocommerce( $limit = 1 ) {
+    public function import_products_to_woocommerce( ) {
         try {
+
+            // get products import limit
+            $limit = get_option('wholesaler_product_update_limit', 1);
 
             // Get products from database
             $products = $this->get_products_from_db( $limit );
@@ -292,7 +295,6 @@ class Wholesaler_Integration_Import_Products {
      */
     private function create_new_product( array $product ) {
         try {
-            put_program_logs( "Creating new product" );
 
             $product_data = [
                 'name'        => $product['name'],
