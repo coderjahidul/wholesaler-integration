@@ -329,7 +329,7 @@ class Wholesaler_Integration_Import_Products {
                     try {
                         $this->client->post( 'products/' . $product_id . '/variations', $variation );
                     } catch (HttpClientException $e) {
-                        put_program_logs( 'WooCommerce API error creating variation for product ' . $product_id . ': ' . $e->getMessage() );
+                        // put_program_logs( 'WooCommerce API error creating variation for product ' . $product_id . ': ' . $e->getMessage() );
                         continue;
                     }
                 }

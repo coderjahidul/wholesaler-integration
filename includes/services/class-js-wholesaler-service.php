@@ -89,9 +89,9 @@ class Wholesaler_JS_Wholesaler_Service {
         }
 
         // put attributes to log
-        put_program_logs( "JS Attributes: " . json_encode( $attributes ) );
+        // put_program_logs( "JS Attributes: " . json_encode( $attributes ) );
         // put variations to log
-        put_program_logs( "JS Variations: " . json_encode( $variations ) );
+        // put_program_logs( "JS Variations: " . json_encode( $variations ) );
 
         return [
             'name'            => $name,
