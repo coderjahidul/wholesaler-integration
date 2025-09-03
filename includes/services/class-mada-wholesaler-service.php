@@ -4,91 +4,91 @@ defined( "ABSPATH" ) || exit( "Direct Access Not Allowed" );
 
 class Wholesaler_MADA_Wholesaler_Service {
 
-    public function map( $product_obj ) {
+    public function map( object|array $product_obj ) {
         $payload = is_string( $product_obj->product_data ) ? json_decode( $product_obj->product_data, true ) : (array) $product_obj->product_data;
+        $product = $payload['PRODUCT'] ?? [];
 
-        // Extract basic product information
-        $name = $this->extract_name( $payload['NAME'] ?? [] );
-        if ( empty( $name ) && isset( $product_obj->sku ) ) {
-            $name = $product_obj->sku;
-        }
+        // --- Basic info ---
+        $name        = $product['NAME'] ?? (string) ( $product_obj->name ?? '' );
+        $brand       = $this->extract_brand( $product['PRODUCER'] ?? '', $product_obj->brand ?? '' );
+        $description = $this->extract_description( $product['DESC'] ?? '', $product['PRODUCER_SECURITY_INFO'] ?? '' );
 
-        $brand = $this->extract_brand( $payload['PRODUCER'] ?? '', $product_obj->brand ?? '' );
-        $description = $this->extract_description( $payload['DESC'] ?? [], $payload['PRODUCER_SECURITY_INFO'] ?? '' );
-        
-        // Extract images
-        $images_payload = $this->build_images_payload_from_mada( $payload['IMAGES'] ?? [] );
-        
-        // Extract categories
-        $categories_terms = $this->parse_mada_categories( $payload['CATEGORIES'] ?? [] );
-        
-        // Extract price and calculate retail price
-        $wholesaler_price = isset( $payload['PRICE'] ) ? (float) $payload['PRICE'] : 0;
+        // --- Images ---
+        $images_payload = $this->build_images_payload_from_mada( $product['IMAGES'] ?? [] );
+
+        // --- Categories ---
+        $categories_terms = $this->parse_mada_categories( $product['CATEGORIES'] ?? [] );
+
+        // --- Prices ---
+        $wholesaler_price      = isset( $product['PRICE'] ) ? (float) $product['PRICE'] : 0;
         $product_regular_price = calculate_product_price_with_margin( $wholesaler_price, $brand );
-        
-        // Extract size and color options from models
-        $size_options = [];
+
+        // --- Variations ---
+        $size_options  = [];
         $color_options = [];
-        $variations = [];
-        
-        if ( isset( $payload['MODELS']['MODEL'] ) && is_array( $payload['MODELS']['MODEL'] ) ) {
-            foreach ( $payload['MODELS']['MODEL'] as $model ) {
-                // Extract sizes
-                if ( isset( $model['SIZE'] ) && is_array( $model['SIZE'] ) ) {
-                    foreach ( $model['SIZE'] as $size ) {
-                        if ( !empty( $size ) && !in_array( $size, $size_options, true ) ) {
-                            $size_options[] = $size;
-                        }
-                    }
-                }
-                
-                // Extract colors (if available)
-                if ( isset( $model['COLOR'] ) && is_array( $model['COLOR'] ) ) {
-                    foreach ( $model['COLOR'] as $color ) {
-                        if ( !empty( $color ) && !in_array( $color, $color_options, true ) ) {
-                            $color_options[] = $color;
-                        }
-                    }
-                }
+        $variations    = [];
+
+        if ( isset( $product['MODELS']['MODEL'] ) ) {
+            $models = $product['MODELS']['MODEL'];
+
+            // Normalize single vs array of models
+            if ( isset( $models['COLOR'] ) ) {
+                $models = [ $models ];
             }
-            
-            // Create variations for each model
-            foreach ( $payload['MODELS']['MODEL'] as $index => $model ) {
-                $variation_sku = $product_obj->sku . '-' . ( $index + 1 );
-                
-                $variation = [
-                    'sku'            => $variation_sku,
-                    'regular_price'  => (string) $product_regular_price,
-                    'wholesale_price' => (string) $wholesaler_price,
-                    'manage_stock'   => true,
-                    'stock_quantity' => 0, // Default stock, can be updated later
-                    'attributes'     => [],
-                    'meta_data'      => [
-                        [ 'key' => '_mada_model_index', 'value' => $index + 1 ],
-                    ],
-                ];
-                
-                // Add size attribute if available
-                if ( isset( $model['SIZE'] ) && is_array( $model['SIZE'] ) && !empty( $model['SIZE'] ) ) {
-                    $variation['attributes'][] = [
-                        'name'  => 'Size',
-                        'option' => $model['SIZE'][0] // Use first size as default
-                    ];
+
+            foreach ( $models as $model ) {
+                $colorRaw = $model['COLOR'] ?? '';
+                $color    = trim( explode( '/', (string) $colorRaw )[0] );
+                if ( $color !== '' && !in_array( $color, $color_options, true ) ) {
+                    $color_options[] = $color;
                 }
-                
-                // Add color attribute if available
-                if ( isset( $model['COLOR'] ) && is_array( $model['COLOR'] ) && !empty( $model['COLOR'] ) ) {
-                    $variation['attributes'][] = [
-                        'name'  => 'Color',
-                        'option' => $model['COLOR'][0] // Use first color as default
-                    ];
+
+                if ( isset( $model['SIZE'] ) ) {
+                    $sizes = $model['SIZE'];
+                    if ( isset( $sizes['_ean'] ) ) {
+                        $sizes = [ $sizes ];
+                    }
+
+                    foreach ( $sizes as $sizeEntry ) {
+                        $sizeText = (string) ( $sizeEntry['__text'] ?? '' );
+                        $ean      = (string) ( $sizeEntry['_ean'] ?? '' );
+                        $qty      = (int) ( $sizeEntry['_amount'] ?? 0 );
+
+                        if ( $sizeText !== '' && !in_array( $sizeText, $size_options, true ) ) {
+                            $size_options[] = $sizeText;
+                        }
+
+                        $baseSku   = (string) ( $product_obj->sku ?? '' );
+                        $colorSlug = preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $color ) );
+                        $sizeSlug  = preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $sizeText ) );
+                        $varSku    = trim( $baseSku . '-' . $colorSlug . '-' . $sizeSlug, '-' );
+
+                        $variation = [
+                            'sku'            => $varSku,
+                            'regular_price'  => (string) $product_regular_price,
+                            'manage_stock'   => true,
+                            'stock_quantity' => $qty,
+                            'attributes'     => [],
+                            'meta_data'      => [],
+                        ];
+
+                        if ( $color !== '' ) {
+                            $variation['attributes'][] = [ 'name' => 'Color', 'option' => $color ];
+                        }
+                        if ( $sizeText !== '' ) {
+                            $variation['attributes'][] = [ 'name' => 'Size', 'option' => $sizeText ];
+                        }
+                        if ( $ean !== '' ) {
+                            $variation['meta_data'][] = [ 'key' => '_ean', 'value' => $ean ];
+                        }
+
+                        $variations[] = $variation;
+                    }
                 }
-                
-                $variations[] = $variation;
             }
         }
-        
-        // Build attributes array for WooCommerce
+
+        // --- Attributes ---
         $attributes = [];
         if ( !empty( $color_options ) ) {
             $attributes[] = [
@@ -96,7 +96,7 @@ class Wholesaler_MADA_Wholesaler_Service {
                 'position'  => 0,
                 'visible'   => true,
                 'variation' => true,
-                'options'   => $color_options,
+                'options'   => array_values( $color_options ),
             ];
         }
         if ( !empty( $size_options ) ) {
@@ -105,124 +105,111 @@ class Wholesaler_MADA_Wholesaler_Service {
                 'position'  => 1,
                 'visible'   => true,
                 'variation' => true,
-                'options'   => $size_options,
+                'options'   => array_values( $size_options ),
             ];
         }
-        
-        // Add VAT information as meta
-        $vat_rate = isset( $payload['VAT'] ) ? (int) $payload['VAT'] : 0;
-        
+
+        // --- VAT ---
+        $vat_rate = isset( $product['VAT'] ) ? (int) $product['VAT'] : 0;
+
+        // put_program_logs( 'Attributes from Mada: ' . json_encode( $attributes ) );
+        // put_program_logs( 'Variations from Mada: ' . json_encode( $variations ) );
+
         return [
-            'name'           => $name,
-            'sku'            => (string) ( $product_obj->sku ?? '' ),
-            'brand'          => $brand,
-            'description'    => $description,
-            'regular_price'  => (string) $product_regular_price,
-            'sale_price'     => '',
+            'name'            => $name,
+            'sku'             => (string) ( $product_obj->sku ?? '' ),
+            'brand'           => $brand,
+            'description'     => $description,
+            'regular_price'   => (string) $product_regular_price,
+            'sale_price'      => '',
             'wholesale_price' => (string) $wholesaler_price,
-            'images_payload' => $images_payload,
-            'categories'     => $categories_terms,
-            'category_terms' => array_map( function ( $name ) { return [ 'name' => $name ]; }, $categories_terms ),
-            'tags'           => [],
-            'attributes'     => $attributes,
-            'variations'     => $variations,
-            'meta_data'      => [
+            'images_payload'  => $images_payload,
+            'categories'      => $categories_terms,
+            'category_terms'  => array_map( function ($name) {
+                return [ 'name' => $name ];
+            }, $categories_terms ),
+            'tags'            => [],
+            'attributes'      => $attributes,
+            'variations'      => $variations,
+            'meta_data'       => [
                 [ 'key' => '_mada_vat_rate', 'value' => $vat_rate ],
-                [ 'key' => '_mada_producer_address', 'value' => $payload['PRODUCER_ADDRESS'] ?? '' ],
-                [ 'key' => '_mada_similar_products', 'value' => $payload['SIMILAR_PRODUCTS']['SIMILAR'] ?? '' ],
+                [ 'key' => '_mada_producer_address', 'value' => $product['PRODUCER_ADDRESS'] ?? '' ],
+                [ 'key' => '_mada_similar_products', 'value' => $product['SIMILAR_PRODUCTS']['SIMILAR'] ?? '' ],
             ],
         ];
     }
-    
-    /**
-     * Extract product name from MADA data
-     */
-    private function extract_name( $name_data ) {
-        if ( empty( $name_data ) ) {
-            return '';
-        }
-        
-        // If it's an array, try to find a non-empty name
-        if ( is_array( $name_data ) ) {
-            foreach ( $name_data as $name ) {
-                if ( !empty( $name ) ) {
-                    return $name;
-                }
-            }
-        }
-        
-        // If it's a string, return as is
-        if ( is_string( $name_data ) ) {
-            return $name_data;
-        }
-        
-        return '';
-    }
-    
+
+
     /**
      * Extract brand information
      */
     private function extract_brand( $producer, $fallback_brand ) {
-        if ( !empty( $producer ) ) {
+        if ( !empty( $producer ) && !preg_match( '/^\d+$/', (string) $producer ) ) {
             return $producer;
         }
-        
+
         return $fallback_brand;
     }
-    
+
     /**
      * Extract and format product description
      */
     private function extract_description( $desc_data, $security_info ) {
         $description_parts = [];
-        
-        // Add main description if available
-        if ( !empty( $desc_data ) && is_array( $desc_data ) ) {
-            foreach ( $desc_data as $desc ) {
-                if ( !empty( $desc ) ) {
-                    $description_parts[] = $desc;
+
+        // Add main description if available (string or array)
+        if ( !empty( $desc_data ) ) {
+            if ( is_array( $desc_data ) ) {
+                foreach ( $desc_data as $desc ) {
+                    if ( !empty( $desc ) ) {
+                        $description_parts[] = $desc;
+                    }
                 }
+            } elseif ( is_string( $desc_data ) ) {
+                $description_parts[] = $desc_data;
             }
         }
-        
+
         // Add security info if available
         if ( !empty( $security_info ) ) {
             $description_parts[] = "\n\n" . $security_info;
         }
-        
+
         return implode( "\n", $description_parts );
     }
-    
+
     /**
      * Build images payload from MADA image data
      */
     private function build_images_payload_from_mada( $images_data ) {
         $result = [];
-        
+
         if ( empty( $images_data ) || !isset( $images_data['IMG'] ) ) {
             return $result;
         }
-        
+
         $img_array = $images_data['IMG'];
-        
-        // Handle single image
+
+        // Handle single image as string
         if ( is_string( $img_array ) ) {
             $result[] = [ 'src' => $img_array ];
             return $result;
         }
-        
-        // Handle array of images
+
+        // Handle array
         if ( is_array( $img_array ) ) {
-            foreach ( $img_array as $img_url ) {
-                if ( is_string( $img_url ) && !empty( $img_url ) ) {
-                    $result[] = [ 'src' => $img_url ];
+            foreach ( $img_array as $img_entry ) {
+                if ( is_string( $img_entry ) && $img_entry !== '' ) {
+                    $result[] = [ 'src' => $img_entry ];
+                } elseif ( is_array( $img_entry ) && isset( $img_entry['__text'] ) && is_string( $img_entry['__text'] ) ) {
+                    $result[] = [ 'src' => $img_entry['__text'] ];
                 }
             }
         }
-        
+
         return $result;
     }
-    
+
     /**
      * Parse MADA categories structure
      */
@@ -230,23 +217,28 @@ class Wholesaler_MADA_Wholesaler_Service {
         if ( empty( $categories_data ) || !isset( $categories_data['CATEGORY'] ) ) {
             return [];
         }
-        
+
         $category = $categories_data['CATEGORY'];
-        $result = [];
-        
-        // Extract category IDs from attributes
-        if ( isset( $category['@attributes'] ) ) {
-            $attrs = $category['@attributes'];
-            
-            if ( isset( $attrs['c1'] ) ) {
-                $result[] = 'Category ' . $attrs['c1'];
-            }
-            
-            if ( isset( $attrs['c2'] ) ) {
-                $result[] = 'Category ' . $attrs['c2'];
+        $result   = [];
+
+        // Support keys like _c1, _c2
+        if ( isset( $category['_c1'] ) && $category['_c1'] !== '' ) {
+            $result[] = 'Category ' . $category['_c1'];
+        }
+        if ( isset( $category['_c2'] ) && $category['_c2'] !== '' ) {
+            $result[] = 'Category ' . $category['_c2'];
+        }
+
+        // If textual path present in __cdata, split to terms
+        if ( isset( $category['__cdata'] ) && is_string( $category['__cdata'] ) && $category['__cdata'] !== '' ) {
+            $pathParts = array_map( 'trim', explode( '/', $category['__cdata'] ) );
+            foreach ( $pathParts as $part ) {
+                if ( $part !== '' && !in_array( $part, $result, true ) ) {
+                    $result[] = $part;
+                }
             }
         }
-        
+
         return $result;
     }
 }
