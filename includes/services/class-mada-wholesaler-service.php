@@ -118,7 +118,7 @@ class Wholesaler_MADA_Wholesaler_Service {
         return [
             'name'            => $name,
             'sku'             => (string) ( $product_obj->sku ?? '' ),
-            'brand'           => $brand,
+            'brand'           => '',
             'description'     => $description,
             'regular_price'   => (string) $product_regular_price,
             'sale_price'      => '',

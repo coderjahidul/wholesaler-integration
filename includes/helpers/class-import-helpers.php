@@ -31,9 +31,68 @@ class Wholesaler_Import_Helpers {
         return false;
     }
 
+    /**
+     * Check if a product variation already exists for given attributes
+     *
+     * @param int   $product_id
+     * @param array $attributes (e.g. ['Color' => 'Red', 'Size' => 'M'])
+     * @return int|false  Variation ID if exists, false otherwise
+     */
+    public function check_variation_exists( $product_id, $attributes ) {
+        global $wpdb;
+
+        // Prepare meta query for attributes
+        $meta_query = [];
+        foreach ( $attributes as $attribute_name => $attribute_value ) {
+            $taxonomy     = 'attribute_' . sanitize_title( $attribute_name );
+            $meta_query[] = $wpdb->prepare(
+                "(meta_key = %s AND meta_value = %s)",
+                $taxonomy,
+                $attribute_value
+            );
+        }
+
+        if ( empty( $meta_query ) ) {
+            return false;
+        }
+
+        // Query variations
+        $query = "
+        SELECT p.ID
+        FROM {$wpdb->posts} p
+        INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
+        WHERE p.post_parent = %d
+        AND p.post_type = 'product_variation'
+        AND (" . implode( ' OR ', $meta_query ) . ")
+        GROUP BY p.ID
+        ";
+
+        $variation_id = $wpdb->get_var( $wpdb->prepare( $query, $product_id ) );
+
+        return $variation_id ? intval( $variation_id ) : false;
+    }
+
+    /**
+     * Check if variation exists by SKU
+     */
+    public function get_variation_id_by_sku( $sku ) {
+        global $wpdb;
+
+        $variation_id = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_sku' AND meta_value = %s",
+                $sku
+            )
+        );
+
+        return $variation_id ? intval( $variation_id ) : false;
+    }
+
+
+
     public function update_product_taxonomies( int $product_id, array $mapped_product ) {
-        $categories = isset( $mapped_product['categories'] ) ? $mapped_product['categories'] : [];
-        $tags       = isset( $mapped_product['tags'] ) ? $mapped_product['tags'] : [];
+        $categories    = isset( $mapped_product['categories'] ) ? $mapped_product['categories'] : [];
+        $tags          = isset( $mapped_product['tags'] ) ? $mapped_product['tags'] : [];
         $product_brand = isset( $mapped_product['brand'] ) ? $mapped_product['brand'] : '';
 
         if ( !empty( $categories ) ) {
@@ -62,8 +121,8 @@ class Wholesaler_Import_Helpers {
             );
 
             return true;
-        } catch ( Exception $e ) {
+        } catch (Exception $e) {
             return false;
         }
     }
-} 
+}
