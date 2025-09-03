@@ -18,6 +18,8 @@ class Wholesaler_AREN_Wholesaler_Service {
         // Extract categories
         $categories_terms = $this->parse_categories( $payload );
 
+        $wholesale_price = $payload['base_price_netto'] ?? 0;
+
         // Extract attributes and variations
         $attributes = $this->build_attributes( $payload );
         $variations = $this->build_variations( $payload, $product_obj );
@@ -31,6 +33,7 @@ class Wholesaler_AREN_Wholesaler_Service {
             'sku'            => (string) ( $product_obj->sku ?? '' ),
             'brand'          => $brand,
             'description'    => $description,
+            'wholesale_price' => $wholesale_price,
             'images_payload' => $images_payload,
             'categories'     => $categories_terms,
             'category_terms' => array_map( function ($name) {
@@ -254,9 +257,13 @@ class Wholesaler_AREN_Wholesaler_Service {
             $size = $size_value;
         }
 
-        // Generate a unique SKU
-        $sku        = $combination['code'] ?? $product_obj->sku;
-        $unique_sku = $sku . '-' . uniqid();
+        // Generate a stable unique SKU using helper
+        $helpers    = new Wholesaler_Import_Helpers();
+        $unique_sku = $helpers->generate_variation_sku(
+            $product_obj->sku ?? 'AREN',
+            $combination['code'] ?? '',
+            [ $color, $size ]
+        );
 
         // Build variation array
         $variation = [

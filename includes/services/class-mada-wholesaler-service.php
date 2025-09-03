@@ -58,18 +58,21 @@ class Wholesaler_MADA_Wholesaler_Service {
                             $size_options[] = $sizeText;
                         }
 
-                        $baseSku   = (string) ( $product_obj->sku ?? '' );
-                        $colorSlug = preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $color ) );
-                        $sizeSlug  = preg_replace( '/[^a-z0-9]+/i', '-', strtolower( $sizeText ) );
-                        $varSku    = trim( $baseSku . '-' . $colorSlug . '-' . $sizeSlug, '-' );
+                        $helpers = isset( $helpers ) ? $helpers : new Wholesaler_Import_Helpers();
+                        $varSku  = $helpers->generate_variation_sku(
+                            $product_obj->sku ?? 'MADA',
+                            '',
+                            [ $color, $sizeText ]
+                        );
 
                         $variation = [
-                            'sku'            => $varSku,
-                            'regular_price'  => (string) $product_regular_price,
-                            'manage_stock'   => true,
-                            'stock_quantity' => $qty,
-                            'attributes'     => [],
-                            'meta_data'      => [],
+                            'sku'             => $varSku,
+                            'regular_price'   => (string) $product_regular_price,
+                            'wholesale_price' => (string) $wholesaler_price,
+                            'manage_stock'    => true,
+                            'stock_quantity'  => $qty,
+                            'attributes'      => [],
+                            'meta_data'       => [],
                         ];
 
                         if ( $color !== '' ) {
@@ -118,7 +121,7 @@ class Wholesaler_MADA_Wholesaler_Service {
         return [
             'name'            => $name,
             'sku'             => (string) ( $product_obj->sku ?? '' ),
-            'brand'           => '',
+            'brand'           => $brand,
             'description'     => $description,
             'regular_price'   => (string) $product_regular_price,
             'sale_price'      => '',

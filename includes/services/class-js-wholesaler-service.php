@@ -50,9 +50,15 @@ class Wholesaler_JS_Wholesaler_Service {
                 $color    = $unit['color'] ?? '';
                 $stockQty = isset( $unit['stock'] ) ? (int) $unit['stock'] : 0;
 
+                // Build a globally-unique, normalized SKU for WooCommerce
+                $baseSku = (string) ( $product_obj->sku ?? '' );
+                $rawSku  = $unitSku !== '' ? ( $baseSku !== '' ? $baseSku . '-' . $unitSku : $unitSku ) : ( $baseSku !== '' ? $baseSku . '-' . uniqid() : uniqid() );
+                $finalSku = preg_replace( '/[^a-z0-9\-]+/i', '-', strtolower( $rawSku ) );
+                $finalSku = trim( preg_replace( '/-+/', '-', $finalSku ), '-' );
+
                 // push to variations
                 $variations[] = [
-                    'sku'             => $unitSku,
+                    'sku'             => $finalSku,
                     'regular_price'   => (string) $product_regular_price,
                     'wholesale_price' => (string) $wholesaler_price,
                     'manage_stock'    => true,
