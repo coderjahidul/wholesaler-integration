@@ -255,7 +255,7 @@ class Wholesaler_Integration_Import_Products {
      */
     private function update_existing_product( int $existing_product_id, array $product ) {
         try {
-            put_program_logs( "Updating existing product ID: {$existing_product_id}" );
+            // put_program_logs( "Updating existing product ID: {$existing_product_id}" );
 
             // --- Update main product ---
             $product_data = [

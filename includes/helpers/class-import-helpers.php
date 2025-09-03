@@ -88,8 +88,6 @@ class Wholesaler_Import_Helpers {
         return $variation_id ? intval( $variation_id ) : false;
     }
 
-
-
     public function update_product_taxonomies( int $product_id, array $mapped_product ) {
         $categories    = isset( $mapped_product['categories'] ) ? $mapped_product['categories'] : [];
         $tags          = isset( $mapped_product['tags'] ) ? $mapped_product['tags'] : [];

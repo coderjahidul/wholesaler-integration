@@ -221,16 +221,9 @@ class Wholesaler_MADA_Wholesaler_Service {
         $category = $categories_data['CATEGORY'];
         $result   = [];
 
-        // Support keys like _c1, _c2
-        if ( isset( $category['_c1'] ) && $category['_c1'] !== '' ) {
-            $result[] = 'Category ' . $category['_c1'];
-        }
-        if ( isset( $category['_c2'] ) && $category['_c2'] !== '' ) {
-            $result[] = 'Category ' . $category['_c2'];
-        }
-
-        // If textual path present in __cdata, split to terms
+        // Only use __cdata path
         if ( isset( $category['__cdata'] ) && is_string( $category['__cdata'] ) && $category['__cdata'] !== '' ) {
+            // Split path by slash
             $pathParts = array_map( 'trim', explode( '/', $category['__cdata'] ) );
             foreach ( $pathParts as $part ) {
                 if ( $part !== '' && !in_array( $part, $result, true ) ) {
@@ -241,4 +234,5 @@ class Wholesaler_MADA_Wholesaler_Service {
 
         return $result;
     }
+
 }
