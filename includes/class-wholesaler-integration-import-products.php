@@ -75,8 +75,73 @@ class Wholesaler_Integration_Import_Products {
                     ],
                 ],
             ] );
+
+            // endpoint for delete product
+            register_rest_route( 'wholesaler/v1', '/delete-products', [
+                'methods'             => 'GET',
+                'callback'            => [ $this, 'handle_delete_products_rest_api_request' ],
+                'permission_callback' => '__return_true',
+                'args'                => [
+                    'limit' => [
+                        'default'           => 1,
+                        'sanitize_callback' => 'absint',
+                        'validate_callback' => function ($param) {
+                            return is_numeric( $param ) && $param > 0 && $param <= 100;
+                        }
+                    ],
+                ],
+            ] );
         } );
     }
+
+    /**
+     * Handle delete products request
+     */
+    public function handle_delete_products_rest_api_request( WP_REST_Request $request ) {
+        global $wpdb;
+
+        $limit = $request->get_param( 'limit' );
+
+        // Fetch product IDs (including trashed ones)
+        $product_ids = $wpdb->get_col(
+            $wpdb->prepare(
+                "SELECT ID FROM {$wpdb->posts} 
+             WHERE post_type = 'product' 
+             ORDER BY ID ASC 
+             LIMIT %d",
+                $limit
+            )
+        );
+
+        if ( empty( $product_ids ) ) {
+            return rest_ensure_response( [
+                'success' => true,
+                'message' => 'No products found to delete.',
+            ] );
+        }
+
+        $deleted = [];
+        $errors  = [];
+
+        foreach ( $product_ids as $product_id ) {
+            $result = wp_delete_post( $product_id, true ); // true = force delete (remove from trash too)
+
+            if ( $result ) {
+                $deleted[] = $product_id;
+            } else {
+                $errors[] = $product_id;
+            }
+        }
+
+        return rest_ensure_response( [
+            'success'         => true,
+            'requested_limit' => $limit,
+            'deleted_count'   => count( $deleted ),
+            'deleted_ids'     => $deleted,
+            'failed_ids'      => $errors,
+        ] );
+    }
+
 
     /**
      * Handle REST API request
@@ -264,7 +329,7 @@ class Wholesaler_Integration_Import_Products {
                 'regular_price' => $product['regular_price'] ?? '',
                 'images'        => $product['images_payload'] ?? [],
                 'attributes'    => $product['attributes'] ?? [],
-                'type'          =>  'variable',
+                'type'          => 'variable',
             ];
 
             // Update product via API
@@ -281,7 +346,7 @@ class Wholesaler_Integration_Import_Products {
                     if ( $existing_variation_id && $this->helpers->variation_belongs_to_product( (int) $existing_variation_id, (int) $existing_product_id ) ) {
                         try {
                             $this->client->put( "products/{$existing_product_id}/variations/{$existing_variation_id}", $variation );
-                        } catch ( HttpClientException $e ) {
+                        } catch (HttpClientException $e) {
                             $this->client->post( "products/{$existing_product_id}/variations", $variation );
                         }
                     } else {

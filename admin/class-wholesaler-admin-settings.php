@@ -97,26 +97,26 @@ class Wholesaler_Admin_Settings {
                     <tbody>
                         <?php
                         $endpoints = [
-                            ['GET', '/wp-json/wholesaler/v1/get-brands', 'Fetch all brands'],
-                            ['POST', '/wp-json/wholesaler/v1/seed-brands', 'Seed brands'],
-                            ['GET', '/wp-json/wholesaler/v1/download-js-products', 'Download JS products File'],
-                            ['GET', '/wp-json/wholesaler/v1/download-mada-products', 'Download MADA products File'],
-                            ['GET', '/wp-json/wholesaler/v1/download-aren-products', 'Download AREN products File'],
-                            ['GET', '/wp-json/wholesaler/v1/insert-js-products', 'Insert JS products from file to DB'],
-                            ['GET', '/wp-json/wholesaler/v1/insert-mada-products', 'Insert MADA products from file to DB'],
-                            ['GET', '/wp-json/wholesaler/v1/insert-aren-products', 'Insert AREN products from file to DB'],
-
-                            ['POST', '/wp-json/wholesaler/v1/products/truncate?key=MY_SECRET_KEY_123', 'Truncate products table'],
-                            ['GET', '/wp-json/wholesaler/v1/import-products', 'Product Import Endpoint'],
+                            [ 'GET', '/wp-json/wholesaler/v1/get-brands', 'Fetch all brands' ],
+                            [ 'POST', '/wp-json/wholesaler/v1/seed-brands', 'Seed brands' ],
+                            [ 'GET', '/wp-json/wholesaler/v1/download-js-products', 'Download JS products File' ],
+                            [ 'GET', '/wp-json/wholesaler/v1/download-mada-products', 'Download MADA products File' ],
+                            [ 'GET', '/wp-json/wholesaler/v1/download-aren-products', 'Download AREN products File' ],
+                            [ 'GET', '/wp-json/wholesaler/v1/insert-js-products', 'Insert JS products from file to DB' ],
+                            [ 'GET', '/wp-json/wholesaler/v1/insert-mada-products', 'Insert MADA products from file to DB' ],
+                            [ 'GET', '/wp-json/wholesaler/v1/insert-aren-products', 'Insert AREN products from file to DB' ],
+                            [ 'POST', '/wp-json/wholesaler/v1/products/truncate?key=MY_SECRET_KEY_123', 'Truncate products table' ],
+                            [ 'GET', '/wp-json/wholesaler/v1/import-products', 'Product Import Endpoint' ],
+                            [ 'GET', '/wp-json/wholesaler/v1/delete-products', 'Delete Products' ],
                         ];
 
-                        foreach ($endpoints as $ep) {
-                            $url = site_url($ep[1]);
+                        foreach ( $endpoints as $ep ) {
+                            $url = site_url( $ep[1] );
                             echo '<tr>
-                                <td>' . esc_html($ep[0]) . '</td>
-                                <td>' . esc_url($url) . '</td>
-                                <td>' . esc_html($ep[2]) . '</td>
-                                <td><button class="button" onclick="navigator.clipboard.writeText(\'' . esc_js($url) . '\')">Copy</button></td>
+                                <td>' . esc_html( $ep[0] ) . '</td>
+                                <td>' . esc_url( $url ) . '</td>
+                                <td>' . esc_html( $ep[2] ) . '</td>
+                                <td><button class="button" onclick="navigator.clipboard.writeText(\'' . esc_js( $url ) . '\')">Copy</button></td>
                             </tr>';
                         }
                         ?>
@@ -130,19 +130,19 @@ class Wholesaler_Admin_Settings {
     public function register_settings() {
         // Register all settings
         $settings = array(
-            'wholesaler_js_url'          => 'esc_url_raw',
-            'wholesaler_mada_url'        => 'esc_url_raw',
-            'wholesaler_aren_url'        => 'esc_url_raw',
-            'wholesaler_consumer_key'    => 'sanitize_text_field',
-            'wholesaler_consumer_secret' => 'sanitize_text_field',
-            'wholesaler_retail_margin'   => 'absint',
-            'wholesaler_product_update_limit' => 'absint'
+            'wholesaler_js_url'               => 'esc_url_raw',
+            'wholesaler_mada_url'             => 'esc_url_raw',
+            'wholesaler_aren_url'             => 'esc_url_raw',
+            'wholesaler_consumer_key'         => 'sanitize_text_field',
+            'wholesaler_consumer_secret'      => 'sanitize_text_field',
+            'wholesaler_retail_margin'        => 'absint',
+            'wholesaler_product_update_limit' => 'absint',
         );
 
         foreach ( $settings as $key => $sanitize ) {
             register_setting( 'wholesaler-settings-group', $key, array(
-                'sanitize_callback' => $sanitize
-            ));
+                'sanitize_callback' => $sanitize,
+            ) );
         }
 
         // Add settings section
@@ -155,12 +155,12 @@ class Wholesaler_Admin_Settings {
 
         // Add settings fields
         $fields = array(
-            'wholesaler_js_url' => __( 'JS XML URL', 'wholesaler' ),
-            'wholesaler_mada_url' => __( 'MADA CSV/API URL', 'wholesaler' ),
-            'wholesaler_aren_url' => __( 'AREN XML URL', 'wholesaler' ),
-            'wholesaler_consumer_key' => __( 'Consumer Key', 'wholesaler' ),
-            'wholesaler_consumer_secret' => __( 'Consumer Secret', 'wholesaler' ),
-            'wholesaler_retail_margin' => __( 'Retail Margin (%)', 'wholesaler' ),
+            'wholesaler_js_url'               => __( 'JS XML URL', 'wholesaler' ),
+            'wholesaler_mada_url'             => __( 'MADA CSV/API URL', 'wholesaler' ),
+            'wholesaler_aren_url'             => __( 'AREN XML URL', 'wholesaler' ),
+            'wholesaler_consumer_key'         => __( 'Consumer Key', 'wholesaler' ),
+            'wholesaler_consumer_secret'      => __( 'Consumer Secret', 'wholesaler' ),
+            'wholesaler_retail_margin'        => __( 'Retail Margin (%)', 'wholesaler' ),
             'wholesaler_product_update_limit' => __( 'Limit (Product Update every minute)', 'wholesaler' ),
         );
 
@@ -181,37 +181,37 @@ class Wholesaler_Admin_Settings {
 
     // Callback functions
     public function wholesaler_js_url_callback() {
-        $value = get_option('wholesaler_js_url', '');
-        echo '<input type="url" id="wholesaler_js_url" name="wholesaler_js_url" value="' . esc_attr($value) . '" style="width:60%">';
+        $value = get_option( 'wholesaler_js_url', '' );
+        echo '<input type="url" id="wholesaler_js_url" name="wholesaler_js_url" value="' . esc_attr( $value ) . '" style="width:60%">';
     }
 
     public function wholesaler_mada_url_callback() {
-        $value = get_option('wholesaler_mada_url', '');
-        echo '<input type="url" id="wholesaler_mada_url" name="wholesaler_mada_url" value="' . esc_attr($value) . '" style="width:60%">';
+        $value = get_option( 'wholesaler_mada_url', '' );
+        echo '<input type="url" id="wholesaler_mada_url" name="wholesaler_mada_url" value="' . esc_attr( $value ) . '" style="width:60%">';
     }
 
     public function wholesaler_aren_url_callback() {
-        $value = get_option('wholesaler_aren_url', '');
-        echo '<input type="url" id="wholesaler_aren_url" name="wholesaler_aren_url" value="' . esc_attr($value) . '" style="width:60%">';
+        $value = get_option( 'wholesaler_aren_url', '' );
+        echo '<input type="url" id="wholesaler_aren_url" name="wholesaler_aren_url" value="' . esc_attr( $value ) . '" style="width:60%">';
     }
 
     public function wholesaler_consumer_key_callback() {
-        $value = get_option('wholesaler_consumer_key', '');
-        echo '<input type="text" id="wholesaler_consumer_key" name="wholesaler_consumer_key" value="' . esc_attr($value) . '" style="width:60%">';
+        $value = get_option( 'wholesaler_consumer_key', '' );
+        echo '<input type="text" id="wholesaler_consumer_key" name="wholesaler_consumer_key" value="' . esc_attr( $value ) . '" style="width:60%">';
     }
 
     public function wholesaler_consumer_secret_callback() {
-        $value = get_option('wholesaler_consumer_secret', '');
-        echo '<input type="text" id="wholesaler_consumer_secret" name="wholesaler_consumer_secret" value="' . esc_attr($value) . '" style="width:60%">';
+        $value = get_option( 'wholesaler_consumer_secret', '' );
+        echo '<input type="text" id="wholesaler_consumer_secret" name="wholesaler_consumer_secret" value="' . esc_attr( $value ) . '" style="width:60%">';
     }
 
     public function wholesaler_retail_margin_callback() {
-        $value = get_option('wholesaler_retail_margin', '');
-        echo '<input type="number" id="wholesaler_retail_margin" name="wholesaler_retail_margin" value="' . esc_attr($value) . '" style="width:20%">';
+        $value = get_option( 'wholesaler_retail_margin', '' );
+        echo '<input type="number" id="wholesaler_retail_margin" name="wholesaler_retail_margin" value="' . esc_attr( $value ) . '" style="width:20%">';
     }
 
     public function wholesaler_product_update_limit_callback() {
-        $value = get_option('wholesaler_product_update_limit', '');
-        echo '<input type="number" id="wholesaler_product_update_limit" name="wholesaler_product_update_limit" value="' . esc_attr($value) . '" style="width:20%">';
+        $value = get_option( 'wholesaler_product_update_limit', '' );
+        echo '<input type="number" id="wholesaler_product_update_limit" name="wholesaler_product_update_limit" value="' . esc_attr( $value ) . '" style="width:20%">';
     }
 }
