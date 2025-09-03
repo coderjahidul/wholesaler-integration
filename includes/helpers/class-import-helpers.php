@@ -73,6 +73,17 @@ class Wholesaler_Import_Helpers {
     }
 
     /**
+     * Check if variation ID belongs to a given product ID
+     */
+    public function variation_belongs_to_product( int $variation_id, int $product_id ) : bool {
+        if ( $variation_id <= 0 || $product_id <= 0 ) {
+            return false;
+        }
+        $parent_id = wp_get_post_parent_id( $variation_id );
+        return (int) $parent_id === (int) $product_id;
+    }
+
+    /**
      * Check if variation exists by SKU
      */
     public function get_variation_id_by_sku( $sku ) {
@@ -88,6 +99,34 @@ class Wholesaler_Import_Helpers {
         return $variation_id ? intval( $variation_id ) : false;
     }
 
+    /**
+     * Generate normalized variation SKU based on base SKU, supplier code and attribute values
+     */
+    public function generate_variation_sku( $baseSku, $supplierCode, $attributes = [] ) {
+        $parts = [];
+        if ( is_string( $baseSku ) && $baseSku !== '' ) {
+            $parts[] = $baseSku;
+        }
+        if ( is_string( $supplierCode ) && $supplierCode !== '' ) {
+            $parts[] = $supplierCode;
+        }
+        foreach ( $attributes as $attr ) {
+            $slug = preg_replace( '/[^a-z0-9]+/i', '-', strtolower( (string) $attr ) );
+            if ( $slug !== '' ) {
+                $parts[] = $slug;
+            }
+        }
+        $sku = trim( implode( '-', $parts ), '-' );
+        $sku = preg_replace( '/-+/', '-', $sku );
+        if ( $sku === '' ) {
+            $sku = uniqid( 'var-' );
+        }
+        return $sku;
+    }
+
+    /**
+     * Update product taxonomies (categories, tags, brand)
+     */
     public function update_product_taxonomies( int $product_id, array $mapped_product ) {
         $categories    = isset( $mapped_product['categories'] ) ? $mapped_product['categories'] : [];
         $tags          = isset( $mapped_product['tags'] ) ? $mapped_product['tags'] : [];

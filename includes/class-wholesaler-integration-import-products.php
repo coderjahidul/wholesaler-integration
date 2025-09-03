@@ -264,7 +264,7 @@ class Wholesaler_Integration_Import_Products {
                 'regular_price' => $product['regular_price'] ?? '',
                 'images'        => $product['images_payload'] ?? [],
                 'attributes'    => $product['attributes'] ?? [],
-                'type'          => !empty( $product['variations'] ) ? 'variable' : 'simple',
+                'type'          =>  'variable',
             ];
 
             // Update product via API
@@ -278,8 +278,12 @@ class Wholesaler_Integration_Import_Products {
                 foreach ( $product['variations'] as $variation ) {
                     $existing_variation_id = $this->helpers->get_variation_id_by_sku( $variation['sku'] );
 
-                    if ( $existing_variation_id ) {
-                        $this->client->put( "products/{$existing_product_id}/variations/{$existing_variation_id}", $variation );
+                    if ( $existing_variation_id && $this->helpers->variation_belongs_to_product( (int) $existing_variation_id, (int) $existing_product_id ) ) {
+                        try {
+                            $this->client->put( "products/{$existing_product_id}/variations/{$existing_variation_id}", $variation );
+                        } catch ( HttpClientException $e ) {
+                            $this->client->post( "products/{$existing_product_id}/variations", $variation );
+                        }
                     } else {
                         $this->client->post( "products/{$existing_product_id}/variations", $variation );
                     }
