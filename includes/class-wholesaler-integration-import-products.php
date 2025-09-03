@@ -130,11 +130,11 @@ class Wholesaler_Integration_Import_Products {
     /**
      * Import products to WooCommerce using REST API
      */
-    public function import_products_to_woocommerce( ) {
+    public function import_products_to_woocommerce() {
         try {
 
             // get products import limit
-            $limit = get_option('wholesaler_product_update_limit', 1);
+            $limit = get_option( 'wholesaler_product_update_limit', 1 );
 
             // Get products from database
             $products = $this->get_products_from_db( $limit );
@@ -255,28 +255,36 @@ class Wholesaler_Integration_Import_Products {
      */
     private function update_existing_product( int $existing_product_id, array $product ) {
         try {
-            put_program_logs( "Updating existing product ID: {$existing_product_id}" );
+            // put_program_logs( "Updating existing product ID: {$existing_product_id}" );
 
-            // TODO: prepare product data for variable product.
-            // TODO: update the product price and stock only.
-
+            // --- Update main product ---
             $product_data = [
                 'name'          => $product['name'],
                 'description'   => $product['description'],
-                'regular_price' => $product['regular_price'],
-                'price'         => $product['sale_price'],
-                'sale_price'    => $product['sale_price'],
+                'regular_price' => $product['regular_price'] ?? '',
+                'images'        => $product['images_payload'] ?? [],
+                'attributes'    => $product['attributes'] ?? [],
+                'type'          => !empty( $product['variations'] ) ? 'variable' : 'simple',
             ];
 
             // Update product via API
-            $this->client->put( 'products/' . $existing_product_id, $product_data );
+            $this->client->put( "products/{$existing_product_id}", $product_data );
 
-            // Set product wholesaler price
+            // Update wholesaler price (custom field)
             update_post_meta( $existing_product_id, '_wholesaler_price', $product['wholesale_price'] );
 
-            // TODO: update stock variable product
+            // --- Handle variations ---
+            if ( !empty( $product['variations'] ) ) {
+                foreach ( $product['variations'] as $variation ) {
+                    $existing_variation_id = $this->helpers->get_variation_id_by_sku( $variation['sku'] );
 
-            put_program_logs( "Successfully updated product ID: {$existing_product_id}" );
+                    if ( $existing_variation_id ) {
+                        $this->client->put( "products/{$existing_product_id}/variations/{$existing_variation_id}", $variation );
+                    } else {
+                        $this->client->post( "products/{$existing_product_id}/variations", $variation );
+                    }
+                }
+            }
 
             return [
                 'success'    => true,
@@ -286,7 +294,10 @@ class Wholesaler_Integration_Import_Products {
 
         } catch (Exception $e) {
             put_program_logs( "Error updating product {$existing_product_id}: " . $e->getMessage() );
-            throw $e;
+            return [
+                'success' => false,
+                'message' => $e->getMessage(),
+            ];
         }
     }
 
@@ -309,8 +320,8 @@ class Wholesaler_Integration_Import_Products {
             }
 
             // Create the product via API
-            $wc_product = $this->client->post( 'products', $product_data );
-            $product_id = $wc_product->id;
+            $wc_product      = $this->client->post( 'products', $product_data );
+            $product_id      = $wc_product->id;
             $wholesale_price = $product['variations'][0]['wholesale_price'] ?? $product['wholesale_price'];
 
             // Set product information
@@ -318,7 +329,7 @@ class Wholesaler_Integration_Import_Products {
             update_post_meta( $product_id, '_visibility', 'visible' );
 
             // Set product wholesaler price
-            update_post_meta( $product_id, '_wholesaler_price',  $wholesale_price);
+            update_post_meta( $product_id, '_wholesaler_price', $wholesale_price );
 
             // Update product category and tags
             $this->update_product_taxonomies( $product_id, $product );
