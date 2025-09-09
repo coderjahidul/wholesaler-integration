@@ -175,7 +175,7 @@ function wholesaler_insert_js_products_from_file_stream() {
     global $wpdb;
 
     $upload_dir = wp_upload_dir();
-    $file_path = $upload_dir['basedir'] . '/wholesaler_js_products.xml'; // or .json if needed
+    $file_path = $upload_dir['basedir'] . '/wholesaler_js_products.xml';
 
     if (!file_exists($file_path)) {
         return [
@@ -204,7 +204,74 @@ function wholesaler_insert_js_products_from_file_stream() {
             // Skip if brand not in allowed list
             if (!in_array($brand, $brands_upper)) continue;
 
-            $product_data = json_encode($node);
+            // Convert XML structure to desired format
+            $article_data = [
+                'article' => [
+                    'name' => (string) $node->name,
+                    'gpsr' => (string) $node->gpsr,
+                    'brand' => [
+                        'name' => (string) $node->brand->name
+                    ],
+                    'category_keys' => (string) $node->category_keys,
+                    'attributes' => [],
+                    'price' => (string) $node->price,
+                    'price_orginal' => (string) $node->price_orginal,
+                    'images' => ['image' => []],
+                    'related' => ['item' => []],
+                    'units' => ['unit' => []],
+                    '_id' => (string) $node['id'],
+                    '_sku' => (string) $node['sku'],
+                    '_ean' => (string) $node['ean']
+                ]
+            ];
+
+            // Process attributes
+            if ($node->attributes) {
+                foreach ($node->attributes->children() as $attr_name => $attr_value) {
+                    $article_data['article']['attributes'][$attr_name] = (string) $attr_value;
+                }
+            }
+
+            // Process images
+            if ($node->images) {
+                foreach ($node->images->image as $image) {
+                    $article_data['article']['images']['image'][] = [
+                        'image_url' => (string) $image->image_url
+                    ];
+                }
+            }
+
+            // Process related items
+            if ($node->related) {
+                foreach ($node->related->item as $item) {
+                    $article_data['article']['related']['item'][] = [
+                        '_id' => (string) $item['id'],
+                        '_sku' => (string) $item['sku'],
+                        '_ean' => (string) $item['ean']
+                    ];
+                }
+            }
+
+            // Process units
+            if ($node->units) {
+                foreach ($node->units->unit as $unit) {
+                    $article_data['article']['units']['unit'][] = [
+                        'color' => (string) $unit->color,
+                        'color_basic' => (string) $unit->color_basic,
+                        'size' => (string) $unit->size,
+                        'pattern' => (string) $unit->pattern,
+                        'miska' => (string) $unit->miska,
+                        'obwod' => (string) $unit->obwod,
+                        'stock' => (string) $unit->stock,
+                        'image_url' => (string) $unit->image_url,
+                        '_id' => (string) $unit['id'],
+                        '_sku' => (string) $unit['sku'],
+                        '_ean' => (string) $unit['ean']
+                    ];
+                }
+            }
+
+            $product_data = json_encode($article_data);
 
             // Insert or update product
             $sql = $wpdb->prepare(
