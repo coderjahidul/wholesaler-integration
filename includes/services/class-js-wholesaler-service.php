@@ -1,81 +1,95 @@
 <?php
 
-defined( "ABSPATH" ) || exit( "Direct Access Not Allowed" );
+defined("ABSPATH") || exit("Direct Access Not Allowed");
 
 class Wholesaler_JS_Wholesaler_Service {
 
-    public function map( $product_obj ) {
-        $payload = is_string( $product_obj->product_data ) ? json_decode( $product_obj->product_data, true ) : (array) $product_obj->product_data;
+    public function map($product_obj) {
+        $payload = is_string($product_obj->product_data) ? json_decode($product_obj->product_data, true) : (array) $product_obj->product_data;
 
-        $name = isset( $payload['name'] ) && is_array( $payload['name'] ) ? ( $payload['name']['en'] ?? ( $payload['name']['pl'] ?? '' ) ) : ( $payload['name'] ?? '' );
-        if ( empty( $name ) && isset( $product_obj->sku ) ) {
-            $name = $product_obj->sku;
+        if (!isset($payload['article'])) {
+            return [];
         }
 
-        $brand       = isset( $payload['brand']['name'] ) ? $payload['brand']['name'] : ( $product_obj->brand ?? '' );
-        $description = isset( $payload['attributes']['opis'] ) && is_array( $payload['attributes']['opis'] ) ? implode( "\n", $payload['attributes']['opis'] ) : '';
+        $article = $payload['article'];
 
-        $images_payload = $this->build_images_payload_from_js( $payload['images'] ?? [] );
+        // --- Name ---
+        $name = $article['name'] ?? '';
+        // if (empty($name) && isset($product_obj->sku)) {
+        //     $name = $product_obj->sku;
+        // }
 
-        $categories_terms = $this->parse_category_path_to_terms( $payload['category_keys'] ?? '' );
+        // --- Brand ---
+        $brand = $article['brand']['name'] ?? ($product_obj->brand ?? '');
 
-        // get wholesaler price
-        $wholesaler_price = isset( $payload['price'] ) ? (float) $payload['price'] : 0;
+        // --- Description ---
+        $description = '';
+        if (!empty($article['attributes']['opis'])) {
+            // decode HTML entities
+            $description = html_entity_decode($article['attributes']['opis']);
+        }
 
-        $product_regular_price = calculate_product_price_with_margin( $wholesaler_price, $brand );
+        // --- Images ---
+        $images_payload = $this->build_images_payload_from_js($article['images'] ?? []);
 
+        // --- Categories ---
+        $categories_terms = $this->parse_category_path_to_terms($article['category_keys'] ?? '');
+
+        // --- Prices ---
+        $wholesaler_price = isset($article['price']) ? (float) $article['price'] : 0;
+        $product_regular_price = calculate_product_price_with_margin($wholesaler_price, $brand);
+
+        // --- Units -> Sizes / Colors / Variations ---
         $size_options  = [];
         $color_options = [];
         $variations    = [];
 
-        if ( isset( $payload['units']['unit'] ) && is_array( $payload['units']['unit'] ) ) {
+        if (isset($article['units']['unit']) && is_array($article['units']['unit'])) {
+            foreach ($article['units']['unit'] as $unit) {
+                $size  = $unit['size'] ?? '';
+                $color = $unit['color'] ?? '';
 
-            // Extract sizes and colors
-            foreach ( $payload['units']['unit'] as $unit ) {
-                $size  = isset( $unit['size'] ) ? (string) $unit['size'] : '';
-                $color = isset( $unit['color'] ) ? (string) $unit['color'] : '';
-                if ( $size !== '' && !in_array( $size, $size_options, true ) ) {
+                if ($size !== '' && !in_array($size, $size_options, true)) {
                     $size_options[] = $size;
                 }
-                if ( $color !== '' && !in_array( $color, $color_options, true ) ) {
+                if ($color !== '' && !in_array($color, $color_options, true)) {
                     $color_options[] = $color;
                 }
             }
 
-            // Extract variations
-            foreach ( $payload['units']['unit'] as $unit ) {
-                $unitSku  = $unit['@attributes']['sku'] ?? '';
-                $unitEan  = $unit['@attributes']['ean'] ?? '';
+            foreach ($article['units']['unit'] as $unit) {
+                $unitSku  = $unit['_sku'] ?? '';
+                $unitEan  = $unit['_ean'] ?? '';
                 $size     = $unit['size'] ?? '';
                 $color    = $unit['color'] ?? '';
-                $stockQty = isset( $unit['stock'] ) ? (int) $unit['stock'] : 0;
+                $stockQty = isset($unit['stock']) ? (int) $unit['stock'] : 0;
 
-                // Build a globally-unique, normalized SKU for WooCommerce
-                $baseSku = (string) ( $product_obj->sku ?? '' );
-                $rawSku  = $unitSku !== '' ? ( $baseSku !== '' ? $baseSku . '-' . $unitSku : $unitSku ) : ( $baseSku !== '' ? $baseSku . '-' . uniqid() : uniqid() );
-                $finalSku = preg_replace( '/[^a-z0-9\-]+/i', '-', strtolower( $rawSku ) );
-                $finalSku = trim( preg_replace( '/-+/', '-', $finalSku ), '-' );
+                // Build SKU
+                $baseSku = (string)($article['_sku'] ?? $product_obj->sku ?? '');
+                $rawSku  = $unitSku !== '' ? ($baseSku !== '' ? $baseSku . '-' . $unitSku : $unitSku) : ($baseSku !== '' ? $baseSku . '-' . uniqid() : uniqid());
+                $finalSku = preg_replace('/[^a-z0-9\-]+/i', '-', strtolower($rawSku));
+                $finalSku = trim(preg_replace('/-+/', '-', $finalSku), '-');
 
-                // push to variations
                 $variations[] = [
                     'sku'             => $finalSku,
-                    'regular_price'   => (string) $product_regular_price,
-                    'wholesale_price' => (string) $wholesaler_price,
+                    'regular_price'   => (string)$product_regular_price,
+                    'wholesale_price' => (string)$wholesaler_price,
                     'manage_stock'    => true,
                     'stock_quantity'  => $stockQty,
                     'attributes'      => [
-                        [ 'name' => 'Color', 'option' => $color ],
-                        [ 'name' => 'Size', 'option' => $size ],
+                        ['name' => 'Color', 'option' => $color],
+                        ['name' => 'Size', 'option' => $size],
                     ],
                     'meta_data'       => [
-                        [ 'key' => '_ean', 'value' => $unitEan ],
+                        ['key' => '_ean', 'value' => $unitEan],
                     ],
                 ];
             }
         }
 
+        // --- Attributes ---
         $attributes = [];
-        if ( !empty( $color_options ) ) {
+        if (!empty($color_options)) {
             $attributes[] = [
                 'name'      => 'Color',
                 'position'  => 0,
@@ -84,7 +98,7 @@ class Wholesaler_JS_Wholesaler_Service {
                 'options'   => $color_options,
             ];
         }
-        if ( !empty( $size_options ) ) {
+        if (!empty($size_options)) {
             $attributes[] = [
                 'name'      => 'Size',
                 'position'  => 1,
@@ -94,68 +108,53 @@ class Wholesaler_JS_Wholesaler_Service {
             ];
         }
 
-        // put attributes to log
-        // put_program_logs( "JS Attributes: " . json_encode( $attributes ) );
-        // put variations to log
-        // put_program_logs( "JS Variations: " . json_encode( $variations ) );
-
         return [
             'name'            => $name,
-            'sku'             => (string) ( $product_obj->sku ?? '' ),
+            'sku'             => (string)($article['_sku'] ?? $product_obj->sku ?? ''),
             'brand'           => $brand,
             'description'     => $description,
-            'regular_price'   => (string) $product_regular_price,
+            'regular_price'   => (string)$product_regular_price,
             'sale_price'      => '',
-            'wholesale_price' => (string) $wholesaler_price,
+            'wholesale_price' => (string)$wholesaler_price,
             'images_payload'  => $images_payload,
             'categories'      => $categories_terms,
-            'category_terms'  => array_map( function ($name) {
-                return [ 'name' => $name ]; }, $categories_terms ),
+            'category_terms'  => array_map(function ($name) {
+                return ['name' => $name];
+            }, $categories_terms),
             'tags'            => [],
             'attributes'      => $attributes,
             'variations'      => $variations,
         ];
     }
 
-    private function parse_category_path_to_terms( $category_path ) {
-        if ( empty( $category_path ) ) {
+    private function parse_category_path_to_terms($category_path) {
+        if (empty($category_path)) {
             return [];
         }
-        $parts = array_map( 'trim', explode( '|', $category_path ) );
+        $parts = array_map('trim', explode('|', $category_path));
         return $parts;
     }
 
-    private function build_images_payload_from_js( $images_field ) {
+    private function build_images_payload_from_js($images_field) {
         $result = [];
-        if ( empty( $images_field ) ) {
+        if (empty($images_field)) {
             return $result;
         }
 
-        if ( is_array( $images_field ) && isset( $images_field[0] ) && is_string( $images_field[0] ) ) {
-            foreach ( $images_field as $url ) {
-                if ( is_string( $url ) && $url !== '' ) {
-                    $result[] = [ 'src' => $url ];
-                }
-            }
-            return $result;
-        }
-
-        if ( is_array( $images_field ) && isset( $images_field['image'] ) ) {
+        if (isset($images_field['image'])) {
             $img = $images_field['image'];
-            if ( is_array( $img ) && isset( $img['image_url'] ) && is_string( $img['image_url'] ) ) {
-                $result[] = [ 'src' => $img['image_url'] ];
-                return $result;
-            }
-            if ( is_array( $img ) ) {
-                foreach ( $img as $entry ) {
-                    if ( is_array( $entry ) && isset( $entry['image_url'] ) && is_string( $entry['image_url'] ) ) {
-                        $result[] = [ 'src' => $entry['image_url'] ];
+
+            if (isset($img['image_url'])) {
+                // single image object
+                $result[] = ['src' => $img['image_url']];
+            } elseif (is_array($img)) {
+                foreach ($img as $entry) {
+                    if (isset($entry['image_url'])) {
+                        $result[] = ['src' => $entry['image_url']];
                     }
                 }
-                return $result;
             }
         }
-
         return $result;
     }
 }
