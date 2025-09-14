@@ -222,6 +222,7 @@ class Wholesaler_Integration_Import_Products {
                         $imported_count++;
                         $this->mark_as_complete( $this->table_name, (int) $product->id );
                     } else {
+                        $this->mark_as_failed( $this->table_name, (int) $product->id );
                         $errors[] = "Product ID {$product->id}: " . $result['message'];
                         $this->log_message( "Failed to import product ID {$product->id}: " . $result['message'] );
                     }
@@ -436,6 +437,10 @@ class Wholesaler_Integration_Import_Products {
      */
     public function mark_as_complete( string $table_name, int $serial_id ) {
         return $this->helpers->mark_as_complete( $table_name, $serial_id );
+    }
+
+    public function mark_as_failed( string $table_name, int $serial_id ) {
+        return $this->helpers->mark_as_failed( $table_name, $serial_id );
     }
 
     private function map_js_product_data( $product_obj ) {

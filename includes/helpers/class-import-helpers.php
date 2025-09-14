@@ -17,7 +17,7 @@ class Wholesaler_Import_Helpers {
             $sku
         ) );
 
-        if ( ! $post_id ) {
+        if ( !$post_id ) {
             return false;
         }
 
@@ -116,6 +116,24 @@ class Wholesaler_Import_Helpers {
             $wpdb->update(
                 $table_name,
                 [ 'status' => Status_Enum::COMPLETED->value ],
+                [ 'id' => $serial_id ],
+                [ '%s' ],
+                [ '%d' ]
+            );
+
+            return true;
+        } catch (Exception $e) {
+            return false;
+        }
+    }
+
+    public function mark_as_failed( string $table_name, int $serial_id ) {
+        try {
+            global $wpdb;
+
+            $wpdb->update(
+                $table_name,
+                [ 'status' => Status_Enum::FAILED->value ],
                 [ 'id' => $serial_id ],
                 [ '%s' ],
                 [ '%d' ]
