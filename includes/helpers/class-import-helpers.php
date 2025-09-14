@@ -9,67 +9,31 @@ class Wholesaler_Import_Helpers {
             return false;
         }
 
-        $args = [
-            'post_type'      => 'product',
-            'meta_query'     => [
-                [
-                    'key'     => '_sku',
-                    'value'   => $sku,
-                    'compare' => '=',
-                ],
-            ],
-            'posts_per_page' => 1,
-            'fields'         => 'ids',
-        ];
-
-        $existing_products = new WP_Query( $args );
-
-        if ( $existing_products->have_posts() ) {
-            return (int) $existing_products->posts[0];
-        }
-
-        return false;
-    }
-
-    /**
-     * Check if a product variation already exists for given attributes
-     *
-     * @param int   $product_id
-     * @param array $attributes (e.g. ['Color' => 'Red', 'Size' => 'M'])
-     * @return int|false  Variation ID if exists, false otherwise
-     */
-    public function check_variation_exists( $product_id, $attributes ) {
         global $wpdb;
 
-        // Prepare meta query for attributes
-        $meta_query = [];
-        foreach ( $attributes as $attribute_name => $attribute_value ) {
-            $taxonomy     = 'attribute_' . sanitize_title( $attribute_name );
-            $meta_query[] = $wpdb->prepare(
-                "(meta_key = %s AND meta_value = %s)",
-                $taxonomy,
-                $attribute_value
-            );
-        }
+        // Check if SKU exists for any product or variation
+        $post_id = $wpdb->get_var( $wpdb->prepare(
+            "SELECT post_id FROM {$wpdb->postmeta} WHERE meta_key = '_sku' AND meta_value = %s LIMIT 1",
+            $sku
+        ) );
 
-        if ( empty( $meta_query ) ) {
+        if ( ! $post_id ) {
             return false;
         }
 
-        // Query variations
-        $query = "
-        SELECT p.ID
-        FROM {$wpdb->posts} p
-        INNER JOIN {$wpdb->postmeta} pm ON p.ID = pm.post_id
-        WHERE p.post_parent = %d
-        AND p.post_type = 'product_variation'
-        AND (" . implode( ' OR ', $meta_query ) . ")
-        GROUP BY p.ID
-        ";
+        // Check the post type
+        $post_type = get_post_type( $post_id );
 
-        $variation_id = $wpdb->get_var( $wpdb->prepare( $query, $product_id ) );
+        if ( 'product' === $post_type ) {
+            return (int) $post_id;
+        }
 
-        return $variation_id ? intval( $variation_id ) : false;
+        if ( 'product_variation' === $post_type ) {
+            $parent_id = wp_get_post_parent_id( $post_id );
+            return $parent_id ? (int) $parent_id : false;
+        }
+
+        return false;
     }
 
     /**
