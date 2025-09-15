@@ -94,3 +94,50 @@ function run_wholesaler_integration() {
 
 }
 run_wholesaler_integration();
+
+
+// add schedule event in every hour
+if ( ! wp_next_scheduled( 'auto_delete_out_of_stock_products_event' ) ) {
+    wp_schedule_event( time(), 'hourly', 'auto_delete_out_of_stock_products_event' );
+}
+
+// event trigger
+add_action( 'auto_delete_out_of_stock_products_event', 'auto_delete_out_of_stock_products' );
+
+// stock out product and product image delete
+function auto_delete_out_of_stock_products() {
+    $args = array(
+        'post_type'      => 'product',
+        'posts_per_page' => -1,
+        'meta_query'     => array(
+            array(
+                'key'     => '_stock_status',
+                'value'   => 'outofstock',
+            ),
+        ),
+    );
+
+    $query = new WP_Query( $args );
+
+    foreach ( $query->posts as $product ) {
+        $product_id = $product->ID;
+
+        // delete product all images
+        $wc_product = wc_get_product( $product_id );
+        if ( $wc_product ) {
+            $attachment_ids = $wc_product->get_gallery_image_ids();
+            foreach ( $attachment_ids as $attachment_id ) {
+                wp_delete_attachment( $attachment_id, true );
+            }
+        }
+
+        // delete product thumbnail
+        $thumbnail_id = get_post_thumbnail_id( $product_id );
+        if ( $thumbnail_id ) {
+            wp_delete_attachment( $thumbnail_id, true );
+        }
+
+        // delete product permanently
+        wp_delete_post( $product_id, true );
+    }
+}
