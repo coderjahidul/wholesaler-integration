@@ -194,6 +194,8 @@ function wholesaler_insert_js_products_from_file_stream() {
     $reader = new XMLReader();
     $reader->open($file_path);
 
+    $total_inserted = 0;
+
     while ($reader->read()) {
         if ($reader->nodeType == XMLReader::ELEMENT && $reader->name == 'article') {
             $node = new SimpleXMLElement($reader->readOuterXML());
@@ -252,9 +254,15 @@ function wholesaler_insert_js_products_from_file_stream() {
                 }
             }
 
-            // Process units
+            // Process units with stock check
+            $has_stock = false; // স্টক আছে কিনা চেকের জন্য
             if ($node->units) {
                 foreach ($node->units->unit as $unit) {
+                    $unit_stock = (int) $unit->stock;
+                    if ($unit_stock > 0) {
+                        $has_stock = true; // স্টক আছে
+                    }
+
                     $article_data['article']['units']['unit'][] = [
                         'color' => (string) $unit->color,
                         'color_basic' => (string) $unit->color_basic,
@@ -271,7 +279,12 @@ function wholesaler_insert_js_products_from_file_stream() {
                 }
             }
 
-            $product_data = json_encode($article_data);
+            // যদি স্টক না থাকে, তাহলে skip
+            if (!$has_stock) {
+                continue;
+            }
+
+            $product_data = wp_json_encode($article_data, JSON_UNESCAPED_UNICODE);
 
             // Insert or update product
             $sql = $wpdb->prepare(
@@ -290,6 +303,7 @@ function wholesaler_insert_js_products_from_file_stream() {
             );
 
             $wpdb->query($sql);
+            $total_inserted++;
         }
     }
 
@@ -297,9 +311,11 @@ function wholesaler_insert_js_products_from_file_stream() {
 
     return [
         'success' => true,
-        'message' => 'Products inserted/updated successfully (streamed).'
+        'message' => 'Products inserted/updated successfully (streamed).',
+        'total_inserted' => $total_inserted
     ];
 }
+
 
 // download mada products
 function wholesaler_download_mada_products() {
@@ -357,6 +373,24 @@ function wholesaler_insert_mada_products_from_file_stream() {
         if ($reader->nodeType == XMLReader::ELEMENT && $reader->name == 'PRODUCT') {
             $node = new SimpleXMLElement($reader->readOuterXML());
 
+            // MODELS stock check
+            $has_stock = false;
+            if (isset($node->MODELS->MODEL)) {
+                foreach ($node->MODELS->MODEL as $model_node) {
+                    foreach ($model_node->SIZE as $size) {
+                        $amount = (int) $size['amount'];
+                        if ($amount > 0) {
+                            $has_stock = true;
+                            break 2; // Stop checking if any size has stock
+                        }
+                    }
+                }
+            }
+
+            if (!$has_stock) {
+                continue; // Skip product if all sizes have zero stock
+            }
+
             // Base fields
             $product = [
                 'ID' => (string) $node->ID,
@@ -390,7 +424,7 @@ function wholesaler_insert_mada_products_from_file_stream() {
                 ];
             }
 
-            // MODELS (supports multiple MODEL elements)
+            // MODELS
             if (isset($node->MODELS->MODEL)) {
                 $models = [];
                 foreach ($node->MODELS->MODEL as $model_node) {
@@ -413,7 +447,6 @@ function wholesaler_insert_mada_products_from_file_stream() {
                     $models[] = $model;
                 }
 
-                // If only one MODEL, keep as object; else as array
                 $product['MODELS']['MODEL'] = count($models) === 1 ? $models[0] : $models;
             }
 
@@ -474,6 +507,7 @@ function wholesaler_insert_mada_products_from_file_stream() {
     ];
 }
 
+
 // insert product aren api to database
 function wholesaler_insert_aren_products_from_file_stream() {
     global $wpdb;
@@ -502,6 +536,31 @@ function wholesaler_insert_aren_products_from_file_stream() {
                 $json = json_encode($node, JSON_UNESCAPED_UNICODE);
                 $product = json_decode($json, true);
                 
+                // Check stock for combinations
+                $stock_available = false;
+                
+                if (isset($product['combinations'])) {
+                    $combinations = $product['combinations']['combination'];
+                    if (isset($combinations['quantity'])) {
+                        // Only one combination
+                        $stock_available = (int)$combinations['quantity'] > 0;
+                    } else {
+                        // Multiple combinations
+                        foreach ($combinations as $combo) {
+                            if ((int)$combo['quantity'] > 0) {
+                                $stock_available = true;
+                                break;
+                            }
+                        }
+                    }
+                } else {
+                    // If no combinations, assume stock field at product level (rare)
+                    $stock_available = isset($product['quantity']) && (int)$product['quantity'] > 0;
+                }
+                
+                // Skip products with no stock
+                if (!$stock_available) continue;
+                
                 $sku = $product['code'] ?? '';
                 $brand = $product['producer'] ?? '';
                 
@@ -528,5 +587,5 @@ function wholesaler_insert_aren_products_from_file_stream() {
     
     echo $product_count > 0 
         ? "AREN Product data inserted successfully. Total Products: $product_count"
-        : "No products found in XML file";
+        : "No products found in XML file with available stock";
 }
