@@ -325,7 +325,7 @@ class Wholesaler_Integration_Import_Products {
                 'name'          => $product['name'],
                 'description'   => $product['description'],
                 'regular_price' => $product['regular_price'] ?? '',
-                'images'        => $product['images_payload'] ?? [],
+                // 'images'        => $product['images_payload'] ?? [],
                 'attributes'    => $product['attributes'] ?? [],
                 'type'          => 'variable',
             ];
