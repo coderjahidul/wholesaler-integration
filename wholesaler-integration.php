@@ -78,6 +78,12 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration.php
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-brands-api.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-integration-import-products.php';
 
+// Performance-optimized classes
+require plugin_dir_path( __FILE__ ) . 'includes/helpers/class-bulk-import-helpers.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-batch-import.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-performance-manager.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-image-optimizer.php';
+
 /**
  * Begins execution of the plugin.
  *
