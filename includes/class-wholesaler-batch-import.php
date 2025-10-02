@@ -342,7 +342,7 @@ class Wholesaler_Batch_Import {
                 }
             }
 
-            // Automatically schedule image processing
+            // Automatically schedule image processing (with duplicate prevention)
             if ( !empty( $products_with_images ) ) {
                 $this->schedule_bulk_image_processing( $products_with_images );
             }
@@ -416,6 +416,9 @@ class Wholesaler_Batch_Import {
         $success_count = 0;
         $errors = [];
 
+        // log the create batch data
+        // put_program_logs("create batch data: " . json_encode( $batch_data ) );
+
         try {
             $response = $this->client->post( 'products/batch', $batch_data );
             
@@ -464,6 +467,9 @@ class Wholesaler_Batch_Import {
         $success_count = 0;
         $errors = [];
 
+        // log the update batch data
+        // put_program_logs("update batch data: " . json_encode( $batch_data ) );
+
         try {
             $response = $this->client->post( 'products/batch', $batch_data );
             
@@ -500,6 +506,10 @@ class Wholesaler_Batch_Import {
      * Batch create variations for a product
      */
     private function batch_create_variations( $product_id, $variations ) {
+
+        // log the create variations data
+        // put_program_logs("create variations data: " . json_encode( $variations ) );
+
         if ( empty( $variations ) || count( $variations ) > 100 ) {
             // Fall back to individual creation for large variation sets
             foreach ( array_chunk( $variations, 50 ) as $chunk ) {
@@ -525,7 +535,10 @@ class Wholesaler_Batch_Import {
     private function batch_update_variations( $product_id, $variations ) {
         // Get existing variations
         $existing_variations = $this->get_existing_variations( $product_id );
-        
+
+        // log the update variations data
+        // put_program_logs("update variations data: " . json_encode( $variations ) );
+
         $update_batch = [];
         $create_batch = [];
 
@@ -561,7 +574,7 @@ class Wholesaler_Batch_Import {
      */
     private function get_existing_variations( $product_id ) {
         global $wpdb;
-        
+
         $query = $wpdb->prepare(
             "SELECT p.ID, pm.meta_value as sku 
              FROM {$wpdb->posts} p 
@@ -586,6 +599,9 @@ class Wholesaler_Batch_Import {
      * Prepare product data for creation
      */
     private function prepare_create_data( $mapped_product ) {
+        // log the prepare create data
+        // put_program_logs("prepare create data: " . json_encode( $mapped_product ) );
+
         $product_data = [
             'name'        => $mapped_product['name'],
             'sku'         => $mapped_product['sku'],
@@ -608,6 +624,9 @@ class Wholesaler_Batch_Import {
      * Prepare product data for update
      */
     private function prepare_update_data( $mapped_product ) {
+        // log the prepare update data
+        // put_program_logs("prepare update data: " . json_encode( $mapped_product ) );
+
         return [
             'name'          => $mapped_product['name'],
             'description'   => $mapped_product['description'],
@@ -620,6 +639,9 @@ class Wholesaler_Batch_Import {
      * Bulk mark products as complete in database
      */
     private function bulk_mark_as_complete( $product_ids ) {
+        // log the bulk mark as complete data
+        // put_program_logs("bulk mark as complete data: " . json_encode( $product_ids ) );
+
         if ( empty( $product_ids ) ) {
             return;
         }
@@ -693,6 +715,9 @@ class Wholesaler_Batch_Import {
      * Handle background import for very large datasets
      */
     public function handle_background_import( WP_REST_Request $request ) {
+        // log the handle background import data
+        // put_program_logs("handle background import data: " . json_encode( $request->get_params() ) );
+
         $total_batches = $request->get_param( 'total_batches' );
         $products_per_batch = $request->get_param( 'products_per_batch' );
         $process_images = $request->get_param( 'process_images' );
@@ -711,8 +736,24 @@ class Wholesaler_Batch_Import {
         // Store job data for tracking
         $job_id = $this->create_background_job( $job_data );
         
-        // Schedule background processing
-        wp_schedule_single_event( time() + 10, 'wholesaler_background_import', [ $job_id, $job_data ] );
+        // Schedule background processing with multiple fallback methods
+        $scheduled = wp_schedule_single_event( time() + 10, 'wholesaler_background_import', [ $job_id, $job_data ] );
+
+        // log the scheduled data
+        // put_program_logs("scheduled data: " . json_encode( $scheduled ) );
+        
+        // Fallback 1: Try immediate processing if scheduling fails
+        if ( ! $scheduled ) {
+            wp_schedule_single_event( time() + 5, 'wholesaler_background_import', [ $job_id, $job_data ] );
+        }
+        
+        // Fallback 2: Add to performance manager queue as backup
+        $this->add_to_performance_queue( $job_id, $job_data );
+        
+        // Fallback 3: Set up a recurring check for stuck jobs
+        if ( ! wp_next_scheduled( 'wholesaler_check_stuck_jobs' ) ) {
+            wp_schedule_event( time() + 60, 'every_minute', 'wholesaler_check_stuck_jobs' );
+        }
         
         return new WP_REST_Response( [
             'success' => true,
@@ -720,7 +761,9 @@ class Wholesaler_Batch_Import {
             'job_id' => $job_id,
             'total_products_estimated' => $total_batches * $products_per_batch,
             'process_images' => $process_images,
-            'update_existing' => $update_existing
+            'update_existing' => $update_existing,
+            'scheduled' => $scheduled,
+            'fallbacks_enabled' => true
         ], 200 );
     }
 
@@ -777,6 +820,73 @@ class Wholesaler_Batch_Import {
         
         require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
         dbDelta( $sql );
+    }
+
+    /**
+     * Add job to performance manager queue as fallback
+     */
+    private function add_to_performance_queue( $job_id, $job_data ) {
+        // Add to the performance manager queue system as backup
+        if ( class_exists( 'Wholesaler_Performance_Manager' ) ) {
+            $performance_manager = new Wholesaler_Performance_Manager();
+            
+            // Schedule via performance manager as backup
+            wp_schedule_single_event( time() + 30, 'wholesaler_process_queue', [
+                'job_type' => 'background_import',
+                'job_data' => [
+                    'job_id' => $job_id,
+                    'job_data' => $job_data
+                ]
+            ] );
+        }
+    }
+
+    /**
+     * Check for stuck jobs and process them
+     */
+    public function check_stuck_jobs() {
+        global $wpdb;
+        
+        $table_name = $wpdb->prefix . 'wholesaler_background_jobs';
+        
+        // Find jobs that have been scheduled for more than 5 minutes
+        $stuck_jobs = $wpdb->get_results(
+            "SELECT * FROM {$table_name} 
+             WHERE status = 'scheduled' 
+             AND created_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
+             LIMIT 5"
+        );
+        
+        foreach ( $stuck_jobs as $job ) {
+            $job_data = json_decode( $job->job_data, true );
+            
+            // Mark as running to prevent duplicate processing
+            $wpdb->update(
+                $table_name,
+                [ 'status' => 'processing_stuck' ],
+                [ 'id' => $job->id ],
+                [ '%s' ],
+                [ '%d' ]
+            );
+            
+            // Process the stuck job immediately
+            try {
+                $this->process_background_job( $job->id, $job_data );
+            } catch ( Exception $e ) {
+                // Mark as failed if processing fails
+                $wpdb->update(
+                    $table_name,
+                    [
+                        'status' => 'failed',
+                        'error_messages' => wp_json_encode( [ 'Stuck job processing failed: ' . $e->getMessage() ] ),
+                        'completed_at' => current_time( 'mysql' )
+                    ],
+                    [ 'id' => $job->id ],
+                    [ '%s', '%s', '%s' ],
+                    [ '%d' ]
+                );
+            }
+        }
     }
 
     /**
@@ -867,6 +977,9 @@ class Wholesaler_Batch_Import {
             
             // Process images in background if requested
             if ( $process_images && !empty( $products_with_images ) ) {
+                // log the schedule bulk image processing data
+                // put_program_logs("schedule bulk image processing data: " . json_encode( $products_with_images ) );
+
                 $this->schedule_bulk_image_processing( $products_with_images );
             }
             
@@ -1079,6 +1192,9 @@ class Wholesaler_Batch_Import {
         $success_count = 0;
         $errors = [];
 
+        // log the update batch data
+        // put_program_logs("update batch data: " . json_encode( $batch_data ) );
+
         try {
             $response = $this->client->post( 'products/batch', $batch_data );
             
@@ -1233,11 +1349,23 @@ class Wholesaler_Batch_Import {
     }
 
     /**
-     * Schedule bulk image processing for products
+     * Schedule bulk image processing for products (with duplicate prevention)
      */
     private function schedule_bulk_image_processing( $products_with_images ) {
+        // log the schedule bulk image processing data
+        // put_program_logs("schedule bulk image processing data: " . json_encode( $products_with_images ) );
+
         foreach ( $products_with_images as $image_data ) {
             if ( $image_data['product_id'] !== 'new' && !empty( $image_data['images'] ) ) {
+                
+                // Check if product already has images to prevent duplicates
+                if ( $this->product_has_images( $image_data['product_id'] ) ) {
+                    // log the product has images data
+                    // put_program_logs("product has images data: " . json_encode( $image_data['product_id'] ) );
+
+                    continue; // Skip if product already has images
+                }
+                
                 // Extract image URLs from the images payload
                 $image_urls = [];
                 foreach ( $image_data['images'] as $image ) {
@@ -1247,18 +1375,106 @@ class Wholesaler_Batch_Import {
                 }
                 
                 if ( !empty( $image_urls ) ) {
-                    // Schedule image processing with a small delay
-                    wp_schedule_single_event( time() + rand( 30, 120 ), 'wholesaler_process_images_batch', [
-                        [
-                            'product_id' => $image_data['product_id'],
-                            'images' => $image_urls,
-                            'batch_index' => 0,
-                            'total_batches' => 1
-                        ]
-                    ] );
+                    // Filter out images that already exist for this product
+                    $new_image_urls = $this->filter_existing_images( $image_data['product_id'], $image_urls );
+
+                    // log the new image urls data
+                    // put_program_logs("new image urls data: " . json_encode( $new_image_urls ) );
+                    
+                    if ( !empty( $new_image_urls ) ) {
+                        // Schedule image processing with a small delay
+
+                        wp_schedule_single_event( time() + rand( 30, 120 ), 'wholesaler_process_images_batch', [
+                            [
+                                'product_id' => $image_data['product_id'],
+                                'images' => $new_image_urls,
+                                'batch_index' => 0,
+                                'total_batches' => 1
+                            ]
+                        ] );
+                    }
                 }
             }
         }
+    }
+
+    /**
+     * Check if product already has images
+     */
+    private function product_has_images( $product_id ) {
+        // Check for featured image
+        $featured_image = get_post_thumbnail_id( $product_id );
+        if ( $featured_image ) {
+            return true;
+        }
+        
+        // Check for gallery images
+        $gallery_images = get_post_meta( $product_id, '_product_image_gallery', true );
+        if ( !empty( $gallery_images ) ) {
+            return true;
+        }
+        
+        return false;
+    }
+
+    /**
+     * Filter out images that already exist for the product
+     */
+    private function filter_existing_images( $product_id, $image_urls ) {
+        global $wpdb;
+        
+        // Get existing image URLs for this product
+        $existing_urls = [];
+        
+        // Get featured image URL
+        $featured_id = get_post_thumbnail_id( $product_id );
+        if ( $featured_id ) {
+            $existing_urls[] = wp_get_attachment_url( $featured_id );
+        }
+        
+        // Get gallery image URLs
+        $gallery_ids = get_post_meta( $product_id, '_product_image_gallery', true );
+        if ( $gallery_ids ) {
+            $gallery_array = explode( ',', $gallery_ids );
+            foreach ( $gallery_array as $gallery_id ) {
+                $url = wp_get_attachment_url( $gallery_id );
+                if ( $url ) {
+                    $existing_urls[] = $url;
+                }
+            }
+        }
+        
+        // Also check by original URL metadata to catch previously imported images
+        $existing_original_urls = $wpdb->get_col( $wpdb->prepare(
+            "SELECT pm.meta_value 
+             FROM {$wpdb->postmeta} pm
+             INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID
+             WHERE pm.meta_key = '_original_url'
+             AND p.post_parent = %d",
+            $product_id
+        ) );
+        
+        $existing_urls = array_merge( $existing_urls, $existing_original_urls );
+        
+        // Filter out URLs that already exist
+        $new_urls = [];
+        foreach ( $image_urls as $url ) {
+            $url_basename = basename( $url );
+            $url_exists = false;
+            
+            foreach ( $existing_urls as $existing_url ) {
+                if ( $existing_url === $url || basename( $existing_url ) === $url_basename ) {
+                    $url_exists = true;
+                    break;
+                }
+            }
+            
+            if ( !$url_exists ) {
+                $new_urls[] = $url;
+            }
+        }
+        
+        return $new_urls;
     }
 
     /**
@@ -1739,3 +1955,45 @@ add_action( 'wholesaler_background_import', function( $job_id, $job_data ) {
     
     $batch_import->process_background_job( $job_id, $job_data );
 }, 10, 2 );
+
+// Register stuck job checker hook
+add_action( 'wholesaler_check_stuck_jobs', function() {
+    $batch_import = new Wholesaler_Batch_Import( 
+        site_url(), 
+        get_option( 'wholesaler_consumer_key', '' ), 
+        get_option( 'wholesaler_consumer_secret', '' ) 
+    );
+    
+    $batch_import->check_stuck_jobs();
+} );
+
+// Add custom cron schedule for every minute
+add_filter( 'cron_schedules', function( $schedules ) {
+    $schedules['every_minute'] = [
+        'interval' => 60,
+        'display'  => __( 'Every Minute' )
+    ];
+    return $schedules;
+} );
+
+// Manual trigger endpoint for testing
+add_action( 'rest_api_init', function() {
+    register_rest_route( 'wholesaler/v1', '/trigger-stuck-jobs', [
+        'methods' => 'POST',
+        'callback' => function() {
+            $batch_import = new Wholesaler_Batch_Import( 
+                site_url(), 
+                get_option( 'wholesaler_consumer_key', '' ), 
+                get_option( 'wholesaler_consumer_secret', '' ) 
+            );
+            
+            $batch_import->check_stuck_jobs();
+            
+            return new WP_REST_Response( [
+                'success' => true,
+                'message' => 'Stuck jobs check triggered'
+            ], 200 );
+        },
+        'permission_callback' => '__return_true'
+    ] );
+} );
