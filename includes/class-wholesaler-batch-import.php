@@ -95,6 +95,30 @@ class Wholesaler_Batch_Import {
                     ],
                 ],
             ] );
+
+            // High-performance bulk delete endpoint
+            register_rest_route( 'wholesaler/v1', '/bulk-delete-products', [
+                'methods'             => 'POST',
+                'callback'            => [ $this, 'handle_bulk_delete_products' ],
+                'permission_callback' => '__return_true',
+                'args'                => [
+                    'batch_size' => [
+                        'default'           => 50,
+                        'sanitize_callback' => 'absint',
+                        'validate_callback' => function ($param) {
+                            return is_numeric( $param ) && $param > 0 && $param <= 100;
+                        }
+                    ],
+                    'delete_images' => [
+                        'default'           => true,
+                        'sanitize_callback' => 'rest_sanitize_boolean',
+                    ],
+                    'cleanup_database' => [
+                        'default'           => true,
+                        'sanitize_callback' => 'rest_sanitize_boolean',
+                    ],
+                ],
+            ] );
         } );
     }
 
@@ -601,6 +625,341 @@ class Wholesaler_Batch_Import {
             'success' => true,
             'message' => "Background import scheduled for {$total_batches} batches"
         ], 200 );
+    }
+
+    /**
+     * Handle bulk delete products with comprehensive cleanup
+     */
+    public function handle_bulk_delete_products( WP_REST_Request $request ) {
+        $batch_size = $request->get_param( 'batch_size' );
+        $delete_images = $request->get_param( 'delete_images' );
+        $cleanup_database = $request->get_param( 'cleanup_database' );
+
+        try {
+            $result = $this->bulk_delete_products( $batch_size, $delete_images, $cleanup_database );
+            return new WP_REST_Response( $result, 200 );
+        } catch ( Exception $e ) {
+            $this->log_message( "Bulk delete error: " . $e->getMessage() );
+            return new WP_REST_Response( [
+                'success' => false,
+                'message' => 'Bulk delete failed: ' . $e->getMessage()
+            ], 500 );
+        }
+    }
+
+    /**
+     * High-performance bulk delete products
+     */
+    public function bulk_delete_products( $batch_size = 50, $delete_images = true, $cleanup_database = true ) {
+        global $wpdb;
+        
+        $start_time = microtime( true );
+        
+        // Get products to delete
+        $product_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} 
+             WHERE post_type IN ('product', 'product_variation') 
+             ORDER BY ID ASC 
+             LIMIT %d",
+            $batch_size
+        ) );
+
+        if ( empty( $product_ids ) ) {
+            return [
+                'success' => true,
+                'message' => 'No products found to delete',
+                'deleted_count' => 0,
+                'images_deleted' => 0,
+                'variations_deleted' => 0,
+                'processing_time' => 0
+            ];
+        }
+
+        $deleted_products = 0;
+        $deleted_images = 0;
+        $deleted_variations = 0;
+        $errors = [];
+
+        // Separate main products from variations
+        $main_products = [];
+        $variations = [];
+        
+        foreach ( $product_ids as $product_id ) {
+            $post_type = get_post_type( $product_id );
+            if ( $post_type === 'product' ) {
+                $main_products[] = $product_id;
+            } elseif ( $post_type === 'product_variation' ) {
+                $variations[] = $product_id;
+            }
+        }
+
+        // Enable performance mode for bulk operations
+        if ( $cleanup_database ) {
+            $this->enable_performance_mode();
+        }
+
+        try {
+            // 1. Delete images in bulk if requested
+            if ( $delete_images ) {
+                $deleted_images = $this->bulk_delete_product_images( array_merge( $main_products, $variations ) );
+            }
+
+            // 2. Delete variations first
+            if ( ! empty( $variations ) ) {
+                $deleted_variations = $this->bulk_delete_variations( $variations );
+            }
+
+            // 3. Get all child variations for main products and delete them
+            if ( ! empty( $main_products ) ) {
+                $child_variations = $this->get_all_child_variations( $main_products );
+                if ( ! empty( $child_variations ) ) {
+                    if ( $delete_images ) {
+                        $deleted_images += $this->bulk_delete_product_images( $child_variations );
+                    }
+                    $deleted_variations += $this->bulk_delete_variations( $child_variations );
+                }
+            }
+
+            // 4. Clean up database tables in bulk
+            if ( $cleanup_database ) {
+                $this->bulk_cleanup_database_tables( array_merge( $main_products, $variations, $child_variations ) );
+            }
+
+            // 5. Delete main products
+            $deleted_products = $this->bulk_delete_main_products( $main_products );
+
+            // 6. Final cleanup
+            if ( $cleanup_database ) {
+                $this->bulk_cleanup_orphaned_data();
+                $this->disable_performance_mode();
+            }
+
+            $end_time = microtime( true );
+            $processing_time = $end_time - $start_time;
+
+            return [
+                'success' => true,
+                'message' => sprintf( 
+                    'Bulk delete completed. Deleted %d products, %d variations, %d images in %.2f seconds', 
+                    $deleted_products, 
+                    $deleted_variations, 
+                    $deleted_images, 
+                    $processing_time 
+                ),
+                'deleted_count' => $deleted_products,
+                'variations_deleted' => $deleted_variations,
+                'images_deleted' => $deleted_images,
+                'processing_time' => round( $processing_time, 3 ),
+                'errors' => $errors
+            ];
+
+        } catch ( Exception $e ) {
+            if ( $cleanup_database ) {
+                $this->disable_performance_mode();
+            }
+            throw $e;
+        }
+    }
+
+    /**
+     * Bulk delete product images
+     */
+    private function bulk_delete_product_images( $product_ids ) {
+        if ( empty( $product_ids ) ) {
+            return 0;
+        }
+
+        global $wpdb;
+        
+        // Get all image IDs associated with these products
+        $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+        
+        // Get featured images
+        $featured_images = $wpdb->get_col( $wpdb->prepare(
+            "SELECT meta_value FROM {$wpdb->postmeta} 
+             WHERE post_id IN ($placeholders) 
+             AND meta_key = '_thumbnail_id' 
+             AND meta_value != ''",
+            ...$product_ids
+        ) );
+
+        // Get gallery images
+        $gallery_images = $wpdb->get_col( $wpdb->prepare(
+            "SELECT meta_value FROM {$wpdb->postmeta} 
+             WHERE post_id IN ($placeholders) 
+             AND meta_key = '_product_image_gallery' 
+             AND meta_value != ''",
+            ...$product_ids
+        ) );
+
+        // Parse gallery image IDs
+        $all_gallery_ids = [];
+        foreach ( $gallery_images as $gallery_string ) {
+            $ids = explode( ',', $gallery_string );
+            $all_gallery_ids = array_merge( $all_gallery_ids, array_filter( $ids ) );
+        }
+
+        // Combine all image IDs
+        $all_image_ids = array_unique( array_merge( $featured_images, $all_gallery_ids ) );
+        
+        // Delete images in chunks to avoid memory issues
+        $deleted_count = 0;
+        $chunk_size = 50;
+        
+        foreach ( array_chunk( $all_image_ids, $chunk_size ) as $chunk ) {
+            foreach ( $chunk as $image_id ) {
+                if ( wp_delete_attachment( $image_id, true ) ) {
+                    $deleted_count++;
+                }
+            }
+        }
+
+        return $deleted_count;
+    }
+
+    /**
+     * Get all child variations for main products
+     */
+    private function get_all_child_variations( $product_ids ) {
+        if ( empty( $product_ids ) ) {
+            return [];
+        }
+
+        global $wpdb;
+        
+        $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+        
+        return $wpdb->get_col( $wpdb->prepare(
+            "SELECT ID FROM {$wpdb->posts} 
+             WHERE post_parent IN ($placeholders) 
+             AND post_type = 'product_variation'",
+            ...$product_ids
+        ) );
+    }
+
+    /**
+     * Bulk delete variations
+     */
+    private function bulk_delete_variations( $variation_ids ) {
+        if ( empty( $variation_ids ) ) {
+            return 0;
+        }
+
+        global $wpdb;
+        
+        $placeholders = implode( ',', array_fill( 0, count( $variation_ids ), '%d' ) );
+        
+        // Delete variation posts
+        $deleted = $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$wpdb->posts} WHERE ID IN ($placeholders)",
+            ...$variation_ids
+        ) );
+
+        return $deleted;
+    }
+
+    /**
+     * Bulk delete main products
+     */
+    private function bulk_delete_main_products( $product_ids ) {
+        if ( empty( $product_ids ) ) {
+            return 0;
+        }
+
+        global $wpdb;
+        
+        $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+        
+        // Delete product posts
+        $deleted = $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$wpdb->posts} WHERE ID IN ($placeholders)",
+            ...$product_ids
+        ) );
+
+        return $deleted;
+    }
+
+    /**
+     * Bulk cleanup database tables
+     */
+    private function bulk_cleanup_database_tables( $product_ids ) {
+        if ( empty( $product_ids ) ) {
+            return;
+        }
+
+        global $wpdb;
+        
+        $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+
+        // Clean up postmeta
+        $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$wpdb->postmeta} WHERE post_id IN ($placeholders)",
+            ...$product_ids
+        ) );
+
+        // Clean up term relationships
+        $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$wpdb->term_relationships} WHERE object_id IN ($placeholders)",
+            ...$product_ids
+        ) );
+
+        // Clean up comments
+        $wpdb->query( $wpdb->prepare(
+            "DELETE FROM {$wpdb->comments} WHERE comment_post_ID IN ($placeholders)",
+            ...$product_ids
+        ) );
+
+        // Clean up WooCommerce lookup tables
+        $wc_tables = [
+            $wpdb->prefix . 'wc_product_meta_lookup',
+            $wpdb->prefix . 'wc_product_attributes_lookup'
+        ];
+
+        foreach ( $wc_tables as $table ) {
+            $table_exists = $wpdb->get_var( $wpdb->prepare( "SHOW TABLES LIKE %s", $table ) );
+            if ( $table_exists ) {
+                $wpdb->query( $wpdb->prepare(
+                    "DELETE FROM {$table} WHERE product_id IN ($placeholders)",
+                    ...$product_ids
+                ) );
+            }
+        }
+    }
+
+    /**
+     * Clean up orphaned data after bulk deletion
+     */
+    private function bulk_cleanup_orphaned_data() {
+        global $wpdb;
+
+        // Clean up orphaned postmeta
+        $wpdb->query( 
+            "DELETE pm FROM {$wpdb->postmeta} pm 
+             LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID 
+             WHERE p.ID IS NULL" 
+        );
+
+        // Clean up orphaned term relationships
+        $wpdb->query( 
+            "DELETE tr FROM {$wpdb->term_relationships} tr 
+             LEFT JOIN {$wpdb->posts} p ON tr.object_id = p.ID 
+             WHERE p.ID IS NULL" 
+        );
+
+        // Clean up orphaned comments
+        $wpdb->query( 
+            "DELETE c FROM {$wpdb->comments} c 
+             LEFT JOIN {$wpdb->posts} p ON c.comment_post_ID = p.ID 
+             WHERE p.ID IS NULL" 
+        );
+
+        // Update term counts
+        $taxonomies = [ 'product_cat', 'product_tag', 'product_brand' ];
+        foreach ( $taxonomies as $taxonomy ) {
+            if ( taxonomy_exists( $taxonomy ) ) {
+                wp_update_term_count_now( [], $taxonomy );
+            }
+        }
     }
 }
 

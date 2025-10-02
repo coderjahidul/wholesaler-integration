@@ -122,14 +122,28 @@ class Wholesaler_Integration_Import_Products {
 
         $deleted = [];
         $errors  = [];
+        $deleted_images = 0;
+        $deleted_variations = 0;
 
         foreach ( $product_ids as $product_id ) {
-            $result = wp_delete_post( $product_id, true ); // true = force delete (remove from trash too)
-
-            if ( $result ) {
-                $deleted[] = $product_id;
-            } else {
-                $errors[] = $product_id;
+            try {
+                $deletion_result = $this->delete_product_completely( $product_id );
+                
+                if ( $deletion_result['success'] ) {
+                    $deleted[] = $product_id;
+                    $deleted_images += $deletion_result['images_deleted'];
+                    $deleted_variations += $deletion_result['variations_deleted'];
+                } else {
+                    $errors[] = [
+                        'product_id' => $product_id,
+                        'error' => $deletion_result['error']
+                    ];
+                }
+            } catch ( Exception $e ) {
+                $errors[] = [
+                    'product_id' => $product_id,
+                    'error' => $e->getMessage()
+                ];
             }
         }
 
@@ -139,7 +153,222 @@ class Wholesaler_Integration_Import_Products {
             'deleted_count'   => count( $deleted ),
             'deleted_ids'     => $deleted,
             'failed_ids'      => $errors,
+            'images_deleted'  => $deleted_images,
+            'variations_deleted' => $deleted_variations,
+            'message' => sprintf( 
+                'Deleted %d products, %d images, and %d variations', 
+                count( $deleted ), 
+                $deleted_images, 
+                $deleted_variations 
+            )
         ] );
+    }
+
+    /**
+     * Completely delete a product and all associated data
+     */
+    private function delete_product_completely( $product_id ) {
+        $images_deleted = 0;
+        $variations_deleted = 0;
+        
+        try {
+            // Get the WooCommerce product object
+            $wc_product = wc_get_product( $product_id );
+            
+            if ( ! $wc_product ) {
+                return [
+                    'success' => false,
+                    'error' => 'Product not found or not a WooCommerce product',
+                    'images_deleted' => 0,
+                    'variations_deleted' => 0
+                ];
+            }
+
+            // 1. Delete all product variations first
+            if ( $wc_product->is_type( 'variable' ) ) {
+                $variation_ids = $wc_product->get_children();
+                
+                foreach ( $variation_ids as $variation_id ) {
+                    // Delete variation images
+                    $variation_images = $this->get_product_images( $variation_id );
+                    foreach ( $variation_images as $image_id ) {
+                        if ( wp_delete_attachment( $image_id, true ) ) {
+                            $images_deleted++;
+                        }
+                    }
+                    
+                    // Delete the variation
+                    if ( wp_delete_post( $variation_id, true ) ) {
+                        $variations_deleted++;
+                    }
+                }
+            }
+
+            // 2. Delete all product images (featured image and gallery)
+            $product_images = $this->get_product_images( $product_id );
+            foreach ( $product_images as $image_id ) {
+                if ( wp_delete_attachment( $image_id, true ) ) {
+                    $images_deleted++;
+                }
+            }
+
+            // 3. Delete product reviews/comments
+            $this->delete_product_reviews( $product_id );
+
+            // 4. Clean up product metadata
+            $this->cleanup_product_metadata( $product_id );
+
+            // 5. Clean up taxonomy relationships
+            $this->cleanup_product_taxonomies( $product_id );
+
+            // 6. Delete from WooCommerce lookup tables
+            $this->cleanup_woocommerce_lookup_tables( $product_id );
+
+            // 7. Finally delete the main product post
+            $result = wp_delete_post( $product_id, true );
+
+            if ( ! $result ) {
+                return [
+                    'success' => false,
+                    'error' => 'Failed to delete main product post',
+                    'images_deleted' => $images_deleted,
+                    'variations_deleted' => $variations_deleted
+                ];
+            }
+
+            return [
+                'success' => true,
+                'images_deleted' => $images_deleted,
+                'variations_deleted' => $variations_deleted
+            ];
+
+        } catch ( Exception $e ) {
+            return [
+                'success' => false,
+                'error' => $e->getMessage(),
+                'images_deleted' => $images_deleted,
+                'variations_deleted' => $variations_deleted
+            ];
+        }
+    }
+
+    /**
+     * Get all images associated with a product (featured + gallery)
+     */
+    private function get_product_images( $product_id ) {
+        $image_ids = [];
+        
+        // Get featured image
+        $featured_image = get_post_thumbnail_id( $product_id );
+        if ( $featured_image ) {
+            $image_ids[] = $featured_image;
+        }
+        
+        // Get gallery images
+        $gallery_images = get_post_meta( $product_id, '_product_image_gallery', true );
+        if ( $gallery_images ) {
+            $gallery_ids = explode( ',', $gallery_images );
+            $image_ids = array_merge( $image_ids, array_filter( $gallery_ids ) );
+        }
+        
+        // For variations, also check variation-specific images
+        $variation_image = get_post_meta( $product_id, '_thumbnail_id', true );
+        if ( $variation_image && ! in_array( $variation_image, $image_ids ) ) {
+            $image_ids[] = $variation_image;
+        }
+        
+        return array_unique( array_filter( $image_ids ) );
+    }
+
+    /**
+     * Delete all reviews/comments for a product
+     */
+    private function delete_product_reviews( $product_id ) {
+        global $wpdb;
+        
+        // Get all comments for this product
+        $comment_ids = $wpdb->get_col( $wpdb->prepare(
+            "SELECT comment_ID FROM {$wpdb->comments} WHERE comment_post_ID = %d",
+            $product_id
+        ) );
+        
+        // Delete each comment and its metadata
+        foreach ( $comment_ids as $comment_id ) {
+            wp_delete_comment( $comment_id, true );
+        }
+    }
+
+    /**
+     * Clean up product metadata
+     */
+    private function cleanup_product_metadata( $product_id ) {
+        global $wpdb;
+        
+        // Delete all postmeta for this product
+        $wpdb->delete( $wpdb->postmeta, [ 'post_id' => $product_id ], [ '%d' ] );
+        
+        // Clean up any orphaned meta entries
+        $wpdb->query( "DELETE FROM {$wpdb->postmeta} WHERE post_id NOT IN (SELECT ID FROM {$wpdb->posts})" );
+    }
+
+    /**
+     * Clean up product taxonomy relationships
+     */
+    private function cleanup_product_taxonomies( $product_id ) {
+        global $wpdb;
+        
+        // Remove all taxonomy relationships for this product
+        $wpdb->delete( 
+            $wpdb->term_relationships, 
+            [ 'object_id' => $product_id ], 
+            [ '%d' ] 
+        );
+        
+        // Clean up term counts (WooCommerce will handle this, but let's be thorough)
+        $taxonomies = [ 'product_cat', 'product_tag', 'product_brand', 'pa_color', 'pa_size' ];
+        foreach ( $taxonomies as $taxonomy ) {
+            if ( taxonomy_exists( $taxonomy ) ) {
+                wp_update_term_count_now( [], $taxonomy );
+            }
+        }
+    }
+
+    /**
+     * Clean up WooCommerce lookup tables
+     */
+    private function cleanup_woocommerce_lookup_tables( $product_id ) {
+        global $wpdb;
+        
+        // WooCommerce lookup tables to clean
+        $lookup_tables = [
+            $wpdb->prefix . 'wc_product_meta_lookup',
+            $wpdb->prefix . 'wc_product_attributes_lookup',
+            $wpdb->prefix . 'woocommerce_downloadable_product_permissions',
+            $wpdb->prefix . 'woocommerce_order_items',
+        ];
+        
+        foreach ( $lookup_tables as $table ) {
+            // Check if table exists before trying to delete from it
+            $table_exists = $wpdb->get_var( $wpdb->prepare( 
+                "SHOW TABLES LIKE %s", 
+                $table 
+            ) );
+            
+            if ( $table_exists ) {
+                if ( $table === $wpdb->prefix . 'wc_product_meta_lookup' ) {
+                    $wpdb->delete( $table, [ 'product_id' => $product_id ], [ '%d' ] );
+                } elseif ( $table === $wpdb->prefix . 'wc_product_attributes_lookup' ) {
+                    $wpdb->delete( $table, [ 'product_id' => $product_id ], [ '%d' ] );
+                } elseif ( $table === $wpdb->prefix . 'woocommerce_downloadable_product_permissions' ) {
+                    $wpdb->delete( $table, [ 'product_id' => $product_id ], [ '%d' ] );
+                }
+            }
+        }
+        
+        // Clean up any WooCommerce sessions or caches related to this product
+        if ( function_exists( 'wc_delete_product_transients' ) ) {
+            wc_delete_product_transients( $product_id );
+        }
     }
 
 
