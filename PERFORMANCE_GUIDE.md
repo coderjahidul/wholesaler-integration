@@ -144,15 +144,173 @@ Images are now processed in the background to avoid blocking product creation:
 POST /wp-json/wholesaler/v1/process-images
 ```
 
+**Parameters:**
+- `product_id` (required): The WooCommerce product ID to attach images to
+- `images` (required): Array of image URLs to process
+- `priority` (default: 5): Processing priority (1-10, higher = more priority)
+
 **Features:**
 - **Automatic optimization**: Resize, compress, format conversion
-- **Batch processing**: Multiple images per job
+- **Batch processing**: Multiple images per job (10 images per batch)
 - **Duplicate detection**: Avoid re-downloading existing images
 - **Background scheduling**: Non-blocking image processing
+- **Smart resizing**: Max 2048px width/height, maintains aspect ratio
+- **Format optimization**: Converts to JPEG for better compression (keeps PNG if transparency)
+- **Quality control**: 85% JPEG quality for optimal size/quality balance
+
+**Example Usage:**
+```bash
+# Process images for product ID 123
+curl -X POST "https://yoursite.com/wp-json/wholesaler/v1/process-images" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product_id": 123,
+    "images": [
+      "https://example.com/images/product-main.jpg",
+      "https://cdn.supplier.com/photos/item-front.png",
+      "https://images.wholesaler.com/gallery/item-back.jpg",
+      "https://static.vendor.com/pics/item-side1.jpeg",
+      "https://media.distributor.com/images/item-side2.webp"
+    ],
+    "priority": 8
+  }'
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Image processing scheduled",
+  "job_ids": ["batch_0", "batch_1"],
+  "total_batches": 2
+}
+```
 
 ### Image Processing Status
+Check the processing status and current images for a product:
+
 ```bash
 GET /wp-json/wholesaler/v1/image-status/{product_id}
+```
+
+**Example:**
+```bash
+# Check image status for product ID 123
+curl "https://yoursite.com/wp-json/wholesaler/v1/image-status/123"
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "product_id": 123,
+  "featured_image": 456,
+  "gallery_images": 4,
+  "total_images": 5,
+  "featured_image_url": "https://yoursite.com/wp-content/uploads/2024/01/product-main-optimized.jpg"
+}
+```
+
+### Image Processing Workflow
+
+1. **Schedule Processing**: Images are queued for background processing
+2. **Download & Validate**: Images are downloaded and validated for type/size
+3. **Optimize**: Images are resized, compressed, and format-optimized
+4. **Upload**: Optimized images are uploaded to WordPress media library
+5. **Attach**: Images are attached to the product (first image as featured, rest as gallery)
+6. **Cleanup**: Temporary files are removed
+
+### Supported Image Formats
+- **Input**: JPEG, PNG, GIF, WebP
+- **Output**: JPEG (default), PNG (if transparency detected)
+- **Max Size**: 2048x2048 pixels (automatically resized)
+- **Quality**: 85% JPEG compression
+
+### Advanced Image Processing Examples
+
+#### Process Images from Different Sources
+```bash
+# Mixed image sources with high priority
+curl -X POST "https://yoursite.com/wp-json/wholesaler/v1/process-images" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "product_id": 456,
+    "images": [
+      "https://supplier1.com/api/images/SKU123/main.jpg",
+      "https://supplier2.net/photos/product-gallery-1.png",
+      "https://cdn.wholesaler.com/images/items/detail-view.webp",
+      "https://static.vendor.org/pics/lifestyle-shot.jpeg"
+    ],
+    "priority": 9
+  }'
+```
+
+#### Batch Process Multiple Products
+```bash
+# Process images for multiple products sequentially
+for product_id in 100 101 102 103 104; do
+  curl -X POST "https://yoursite.com/wp-json/wholesaler/v1/process-images" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"product_id\": $product_id,
+      \"images\": [
+        \"https://api.supplier.com/images/product-$product_id-main.jpg\",
+        \"https://api.supplier.com/images/product-$product_id-alt1.jpg\",
+        \"https://api.supplier.com/images/product-$product_id-alt2.jpg\"
+      ],
+      \"priority\": 6
+    }"
+  
+  # Small delay between requests to avoid overwhelming the server
+  sleep 2
+done
+```
+
+#### Monitor Processing Progress
+```bash
+# Check processing status for multiple products
+for product_id in 123 456 789; do
+  echo "Product $product_id status:"
+  curl -s "https://yoursite.com/wp-json/wholesaler/v1/image-status/$product_id" | \
+    jq '.total_images, .featured_image_url'
+  echo "---"
+done
+```
+
+### Image Processing Performance Tips
+
+#### 1. Optimal Batch Sizes
+- **Small images** (< 500KB): Up to 15 images per request
+- **Medium images** (500KB - 2MB): 5-10 images per request  
+- **Large images** (> 2MB): 3-5 images per request
+
+#### 2. Priority Guidelines
+- **High Priority (8-10)**: Critical product images, featured products
+- **Normal Priority (5-7)**: Regular product images
+- **Low Priority (1-4)**: Bulk imports, background updates
+
+#### 3. Error Handling
+```bash
+# Check for processing errors in logs
+curl "https://yoursite.com/wp-json/wholesaler/v1/image-status/123" | \
+  jq '.errors // "No errors"'
+```
+
+### Integration with Product Import
+
+#### Combined Product + Image Processing
+```bash
+# 1. First, import products without images for speed
+curl -X POST "/wp-json/wholesaler/v1/batch-import" \
+  -d '{"batch_size": 50, "performance_mode": true}'
+
+# 2. Then process images in background
+curl -X POST "/wp-json/wholesaler/v1/process-images" \
+  -d '{
+    "product_id": 123,
+    "images": ["https://example.com/image1.jpg", "https://example.com/image2.jpg"],
+    "priority": 7
+  }'
 ```
 
 ## 📊 Monitoring & Analytics
