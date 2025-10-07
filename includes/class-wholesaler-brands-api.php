@@ -3,7 +3,7 @@
 
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
-class Wholesaler_Brands_API {
+class Wholesaler_Reset_API {
 
     private $file_path;
 
@@ -26,6 +26,22 @@ class Wholesaler_Brands_API {
             'methods'  => 'POST',
             'callback' => [ $this, 'seed_brands' ],
             'permission_callback' => "__return_true"
+        ] );
+
+        // remove out of stock and less stock products
+        register_rest_route( 'wholesaler/v1', '/remove-out-of-stock-products', [
+            'methods'  => 'POST',
+            'callback' => [ $this, 'remove_out_of_stock_products' ],
+            'permission_callback' => "__return_true",
+            'args' => [
+                'batch_size' => [
+                    'default'           => 50,
+                    'sanitize_callback' => 'absint',
+                    'validate_callback' => function ($param) {
+                        return is_numeric( $param ) && $param > 0 && $param <= 200;
+                    }
+                ]
+            ]
         ] );
     }
 
@@ -111,6 +127,35 @@ class Wholesaler_Brands_API {
             'count'    => count( $inserted ),
         ];
     }
+
+    /**
+     * Remove out of stock and less stock products
+     * Triggers a background job to process product removal based on stock rules:
+     * 1. Products with 1 or fewer pieces across all variations
+     * 2. Products that dropped to just one piece (same as rule 1)
+     * 3. BRAS category products with fewer than 5 pieces
+     */
+    public function remove_out_of_stock_products( $request ) {
+        // Load the stock cleanup class
+        require_once plugin_dir_path( __FILE__ ) . 'class-wholesaler-stock-cleanup.php';
+        
+        // Get batch size from request (default: 50)
+        $batch_size = $request->get_param( 'batch_size' ) ?? 50;
+        $batch_size = absint( $batch_size );
+        
+        if ( $batch_size < 1 || $batch_size > 200 ) {
+            return new WP_REST_Response( [
+                'status'  => 'error',
+                'message' => 'Batch size must be between 1 and 200',
+            ], 400 );
+        }
+        
+        // Start the cleanup job
+        $cleanup = new Wholesaler_Stock_Cleanup();
+        $result = $cleanup->start_cleanup_job( $batch_size );
+        
+        return new WP_REST_Response( $result, 200 );
+    }
 }
 
-new Wholesaler_Brands_API();
+new Wholesaler_Reset_API();

@@ -83,6 +83,7 @@ require plugin_dir_path( __FILE__ ) . 'includes/helpers/class-bulk-import-helper
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-batch-import.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-performance-manager.php';
 require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-image-optimizer.php';
+require plugin_dir_path( __FILE__ ) . 'includes/class-wholesaler-stock-cleanup.php';
 
 /**
  * Begins execution of the plugin.
