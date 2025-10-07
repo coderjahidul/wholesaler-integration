@@ -145,8 +145,8 @@ function auto_delete_out_of_stock_products() {
             $delete_product = true;
         }
 
-        // Condition 3: In BRAS category and less than 5 pieces
-        elseif ( in_array( 'BIUSTONOSZE', array_map( 'strtoupper', $categories ) ) && $stock_qty < 5 ) {
+        // Condition 3: In BRAS category and less than 6 pieces
+        elseif ( in_array( 'BIUSTONOSZE', array_map( 'strtoupper', $categories ) ) && $stock_qty < 6 ) {
             $delete_product = true;
         }
 
