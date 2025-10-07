@@ -102,48 +102,69 @@ function run_wholesaler_integration() {
 run_wholesaler_integration();
 
 
-// add schedule event in every hour
+// Schedule event every hour
 if ( ! wp_next_scheduled( 'auto_delete_out_of_stock_products_event' ) ) {
     wp_schedule_event( time(), 'hourly', 'auto_delete_out_of_stock_products_event' );
 }
 
-// event trigger
+// Event trigger
 add_action( 'auto_delete_out_of_stock_products_event', 'auto_delete_out_of_stock_products' );
 
-// stock out product and product image delete
+// Automatically delete out-of-stock and low-stock products
 function auto_delete_out_of_stock_products() {
+
     $args = array(
         'post_type'      => 'product',
         'posts_per_page' => -1,
-        'meta_query'     => array(
-            array(
-                'key'     => '_stock_status',
-                'value'   => 'outofstock',
-            ),
-        ),
+        'post_status'    => 'publish',
     );
 
     $query = new WP_Query( $args );
 
     foreach ( $query->posts as $product ) {
         $product_id = $product->ID;
-
-        // delete product all images
         $wc_product = wc_get_product( $product_id );
-        if ( $wc_product ) {
+
+        if ( ! $wc_product ) {
+            continue;
+        }
+
+        $stock_status = $wc_product->get_stock_status(); // in_stock, outofstock, onbackorder
+        $stock_qty    = (int) $wc_product->get_stock_quantity();
+        $categories   = wp_get_post_terms( $product_id, 'product_cat', array( 'fields' => 'names' ) );
+
+        $delete_product = false;
+
+        // Condition 1: Out of stock
+        if ( $stock_status === 'outofstock' ) {
+            $delete_product = true;
+        }
+
+        // Condition 2: Less than 2 pieces (for all products)
+        elseif ( $stock_qty > 0 && $stock_qty < 2 ) {
+            $delete_product = true;
+        }
+
+        // Condition 3: In BRAS category and less than 5 pieces
+        elseif ( in_array( 'BIUSTONOSZE', array_map( 'strtoupper', $categories ) ) && $stock_qty < 5 ) {
+            $delete_product = true;
+        }
+
+        if ( $delete_product ) {
+            // Delete gallery images
             $attachment_ids = $wc_product->get_gallery_image_ids();
             foreach ( $attachment_ids as $attachment_id ) {
                 wp_delete_attachment( $attachment_id, true );
             }
-        }
 
-        // delete product thumbnail
-        $thumbnail_id = get_post_thumbnail_id( $product_id );
-        if ( $thumbnail_id ) {
-            wp_delete_attachment( $thumbnail_id, true );
-        }
+            // Delete featured image
+            $thumbnail_id = get_post_thumbnail_id( $product_id );
+            if ( $thumbnail_id ) {
+                wp_delete_attachment( $thumbnail_id, true );
+            }
 
-        // delete product permanently
-        wp_delete_post( $product_id, true );
+            // Permanently delete product
+            wp_delete_post( $product_id, true );
+        }
     }
 }
