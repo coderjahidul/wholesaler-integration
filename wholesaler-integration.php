@@ -101,7 +101,7 @@ function run_wholesaler_integration() {
 }
 run_wholesaler_integration();
 
-
+/*
 // Schedule event every hour
 if ( ! wp_next_scheduled( 'auto_delete_out_of_stock_products_event' ) ) {
     wp_schedule_event( time(), 'hourly', 'auto_delete_out_of_stock_products_event' );
@@ -168,3 +168,4 @@ function auto_delete_out_of_stock_products() {
         }
     }
 }
+*/
