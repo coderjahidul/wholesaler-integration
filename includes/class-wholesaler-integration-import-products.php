@@ -603,10 +603,30 @@ class Wholesaler_Integration_Import_Products {
     private function create_new_product( array $product ) {
         try {
 
+            // Check if product has only single (1) unit quantity - ignore it and mark as complete
+            if ( $this->has_single_unit_quantity( $product ) ) {
+                $this->log_message( "Product SKU {$product['sku']} has only 1 unit quantity, ignoring..." );
+                return [
+                    'success' => true,
+                    'message' => 'Product ignored due to single unit quantity',
+                    'product_id' => null,
+                ];
+            }
+
+            // Check if product is in BIUSTONOSZE category and has ≥ 5 variations
+            if ( !$this->is_valid_biustonosze_product( $product ) ) {
+                $this->log_message( "Product SKU {$product['sku']} does not meet BIUSTONOSZE category requirements, ignoring..." );
+                return [
+                    'success' => true,
+                    'message' => 'Product ignored - not in BIUSTONOSZE category or insufficient variations',
+                    'product_id' => null,
+                ];
+            }
+
             $product_data = [
                 'name'        => $product['name'],
                 'sku'         => $product['sku'],
-                'type'        => 'variable', // TODO: need check is simple or variable product
+                'type'        => 'variable',
                 'description' => $product['description'],
                 'attributes'  => $product['attributes'] ?? [],
                 'categories'  => $product['category_terms'],
@@ -670,6 +690,60 @@ class Wholesaler_Integration_Import_Products {
 
     public function mark_as_failed( string $table_name, int $serial_id ) {
         return $this->helpers->mark_as_failed( $table_name, $serial_id );
+    }
+
+    /**
+     * Check if product has only single (1) unit quantity
+     */
+    private function has_single_unit_quantity( array $product ) {
+        // Check total quantity across all variations
+        $total_quantity = 0;
+        
+        if ( !empty( $product['variations'] ) ) {
+            foreach ( $product['variations'] as $variation ) {
+                $stock_quantity = isset( $variation['stock_quantity'] ) ? (int) $variation['stock_quantity'] : 0;
+                $total_quantity += $stock_quantity;
+            }
+        } else {
+            // For simple products, check the main product stock quantity
+            $total_quantity = isset( $product['stock_quantity'] ) ? (int) $product['stock_quantity'] : 0;
+        }
+        
+        return $total_quantity <= 1;
+    }
+
+    /**
+     * Check if product is in BIUSTONOSZE category and has ≥ 5 variations
+     */
+    private function is_valid_biustonosze_product( array $product ) {
+        // Check if product is in BIUSTONOSZE category
+        $is_biustonosze_category = false;
+        
+        if ( !empty( $product['category_terms'] ) ) {
+            foreach ( $product['category_terms'] as $category ) {
+                $category_slug = '';
+                if ( is_array( $category ) && isset( $category['slug'] ) ) {
+                    $category_slug = strtolower( $category['slug'] );
+                } elseif ( is_string( $category ) ) {
+                    $category_slug = strtolower( $category );
+                }
+                
+                if ( $category_slug === 'biustonosze' ) {
+                    $is_biustonosze_category = true;
+                    break;
+                }
+            }
+        }
+        
+        // If not in BIUSTONOSZE category, allow the product (only filter BIUSTONOSZE category)
+        if ( !$is_biustonosze_category ) {
+            return true;
+        }
+        
+        // If it is in BIUSTONOSZE category, check if it has ≥ 5 variations
+        $variation_count = !empty( $product['variations'] ) ? count( $product['variations'] ) : 0;
+        
+        return $variation_count >= 5;
     }
 
     private function map_js_product_data( $product_obj ) {
