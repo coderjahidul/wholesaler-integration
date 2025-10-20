@@ -920,6 +920,7 @@ class Wholesaler_Batch_Import {
             $total_errors = 0;
             $error_messages = [];
             $products_with_images = [];
+            $product_state = '';
             
             // Enable performance mode for background processing
             $this->enable_performance_mode();
@@ -935,9 +936,10 @@ class Wholesaler_Batch_Import {
                     if ( $result['success'] ) {
                         $total_created += $result['created'];
                         $total_updated += $result['updated'];
+                        $product_state = $result['product_state'];
                         
                         // Collect products with images for later processing
-                        if ( $process_images && !empty( $result['products_with_images'] ) ) {
+                        if ( $process_images && 'new' == $product_state && !empty( $result['products_with_images'] ) ) {
                             $products_with_images = array_merge( 
                                 $products_with_images, 
                                 $result['products_with_images'] 
@@ -976,7 +978,7 @@ class Wholesaler_Batch_Import {
             }
             
             // Process images in background if requested
-            if ( $process_images && !empty( $products_with_images ) ) {
+            if ( $process_images && 'new' == $product_state && !empty( $products_with_images ) ) {
                 // log the schedule bulk image processing data
                 // put_program_logs("schedule bulk image processing data: " . json_encode( $products_with_images ) );
 
@@ -1049,6 +1051,7 @@ class Wholesaler_Batch_Import {
             $update_batch = [];
             $product_ids_to_update = [];
             $products_with_images = [];
+            $product_state = '';
 
             foreach ( $products as $product ) {
                 $mapped_product = $this->map_product_data( $product->wholesaler_name, $product );
@@ -1064,6 +1067,10 @@ class Wholesaler_Batch_Import {
                 }
 
                 if ( $existing_id && $update_existing ) {
+
+                    // set product state as existing
+                    $product_state = 'existing';
+
                     $update_batch[] = [
                         'id' => $existing_id,
                         'data' => $this->prepare_update_data( $mapped_product ),
@@ -1072,6 +1079,10 @@ class Wholesaler_Batch_Import {
                     ];
                     $product_ids_to_update[] = $product->id;
                 } elseif ( !$existing_id ) {
+
+                    // set product state as new
+                    $product_state = 'new';
+
                     $create_batch[] = [
                         'data' => $this->prepare_create_data( $mapped_product ),
                         'original' => $product,
@@ -1117,6 +1128,7 @@ class Wholesaler_Batch_Import {
                 'updated' => $results['updated'],
                 'errors' => $results['errors'],
                 'total_processed' => count( $products ),
+                'product_state' => $product_state, // is the product new or existing
                 'products_with_images' => $products_with_images
             ];
 
