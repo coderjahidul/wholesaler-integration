@@ -33,8 +33,190 @@ class Wholesaler_Batch_Import {
     private $db_batch_size = 500; // Database bulk operation size
     private $performance_mode = false;
 
+    /**
+     * Excluded category slugs - products with these categories will be skipped
+     */
+    private $excluded_categories = [
+        "Podwiązki",
+        "matowe",
+        "Odzież",
+        "Dresy",
+        "Leginsy",
+        "Garniturowe",
+        "Fantazyjna / Biustonosze",
+        "Skarpety / Stopki",
+        "Torby Papierowe",
+        "Spodnie, Spodenki",
+        "Pończosznictwo / Leginsy",
+        "Fantazyjna / Perfumy",
+        "X-Mas",
+        "skarpety dziecięce i młodzieżowe",
+        "Mokasynki",
+        "wiskoza",
+        "Szale",
+        "biustonosz",
+        "Skarpety",
+        "Stopki",
+        "Opaski Na Oczy",
+        "Spódnice, Sukienki",
+        "Pudełka",
+        "Halki i półhalki",
+        "Ramiączka",
+        "Bluzki, Podkoszulki",
+        "Akcesoria Plażowe",
+        "Stojaki, Wieszaki",
+        "akcesoria do biustonoszy",
+        "zdrowotne",
+        "dziewczynka",
+        "koszule i piżamy",
+        "Fantazyjna / Pas do pończoch",
+        "Bielizna erotyczna / Perfumy",
+        "Okazjonalne",
+        "Stroje Kąpielowe / Sukienki",
+        "pozostałe akcesoria",
+        "Pareo, Sukienki",
+        "Reklamówki",
+        "Bielizna erotyczna / Majteczki",
+        "Bielizna dziecięca / Rajstopy",
+        "Bielizna dziecięca / Piżama dziewczęca",
+        "długi rękaw",
+        "rajstopy dziecięce",
+        "bezuciskowe",
+        "spodenki gimnastyczne",
+        "nerki",
+        "komplety pościeli",
+        "duże oczka",
+        "na zime",
+        "torby prezentowe",
+        "chłopiec",
+        "koszulka",
+        "narzuty",
+        "Halki, Półhalki",
+        "Okazjonalne / Walentynki",
+        "Fantazyjna / Przebieranki",
+        "Pończosznictwo / Ślubna",
+        "medyczne",
+        "biustonosze silikonowe",
+        "wzorzyste",
+        "berety",
+        "koszyki",
+        "chusteczki",
+        "Inne",
+        "Kominy, Kominiarki",
+        "T Shirty",
+        "Bielizna dziecięca / Biustonosze",
+        "Bielizna damska / Pasy do pończoch",
+        "Sukienki",
+        "Skarpety / Podkolanówki",
+        "bielizna bezszwowa",
+        "Bielizna dziecięca, młodzieżowa",
+        "bambus",
+        "3",
+        "do włosów",
+        "akryl",
+        "Podkoszulki, Koszulki",
+        "Kalesony",
+        "Slipy i bokserki",
+        "Bielizna erotyczna / Przebieranki",
+        "Dodatki",
+        "Stroje kąpielowe dziecięce",
+        "akcesoria niemowlęce",
+        "koce",
+        "Męska",
+        "Podkładki Pod Ramiączka",
+        "Męskie",
+        "Manekiny I Ekspozytory",
+        "koszulki nocne",
+        "Pończosznictwo",
+        "Kąpielówki",
+        "Okazjonalne / X-Mas",
+        "rozpinana",
+        "bielizna ciążowa i dla mamy",
+        "koszulki",
+        "Koszulki",
+        "Kosmetyki",
+        "Podkoszulki",
+        "Body, Halki",
+        "gładkie",
+        "antypoślizgowe",
+        "ażur",
+        "kombinezony",
+        "Pasy",
+        "Opaski",
+        "Bluzki",
+        "młodzieżowe",
+        "dla domu",
+        "Podkoszulki,Koszulki",
+        "Piżama dziewczęca",
+        "Bielizna erotyczna / Stringi",
+        "Fantazyjna / Sukienki",
+        "Dres",
+        "wełniane",
+        "Artykuły sklepowe / Uroda",
+        "Bielizna męska / Slipy i bokserki",
+        "Bielizna męska / Piżamy",
+        "ramiączko",
+        "podkolanówki męskie",
+        "Bielizna damska / Figi",
+        "małe oczka",
+        "reformy",
+        "bawełna",
+        "Pozostałe",
+        "Podkolanówki",
+        "Ciążowe",
+        "Bielizna damska / Gorsety",
+        "bielizna termoaktywna",
+        "kapelusze",
+        "bez fiszbin",
+        "żakardowe",
+        "Dziecięce",
+        "Zakolanówki",
+        "Pończosznictwo / Pończochy",
+        "Fantazyjna / Pończochy",
+        "Koszulki dziewczęce",
+        "ręczniki plażowe",
+        "Stroje kąpielowe damskie",
+        "Czapki, Opaski",
+        "Sezonowa I Thermo",
+        "Bluzy",
+        "Piżama chłopięca",
+        "Legginsy",
+        "Opakowania",
+        "Torby",
+        "Bielizna męska / Szlafroki",
+        "Bielizna dziecięca",
+        "Bielizna damska",
+        "Bielizna damska / Koszule Nocne",
+        "Bielizna erotyczna / Sukienki",
+        "Majteczki",
+        "bawełniane",
+        "sportowe",
+        "Czapki",
+        "podkolanówki dziecięce",
+        "szaliki",
+        "topy",
+        "halki",
+        "spodnie",
+        "4 rękaw",
+        "na głowę",
+        "ręczniki",
+        "Koszule I Koszulki Nocne",
+        "Do Biustonoszy",
+        "Wkładki",
+        "Meble I Oznaczenia",
+        "Tuniki",
+        "apaszki",
+        "Balerinki",
+        "niemowlęce",
+        "żakard",
+        "Skarpety / Skarpetki",
+        "Getry",
+        "relaksujące",
+        "dziewczęce",
+    ];
+
     public function __construct( string $website_url, string $consumer_key, string $consumer_secret ) {
-        
+
         // Set up the API client with optimized settings
         $this->client = new Client(
             $website_url,
@@ -69,10 +251,10 @@ class Wholesaler_Batch_Import {
                 'callback'            => [ $this, 'handle_batch_import' ],
                 'permission_callback' => '__return_true',
                 'args'                => [
-                    'batch_size' => [
+                    'batch_size'       => [
                         'default'           => 50,
                         'sanitize_callback' => 'absint',
-                        'validate_callback' => function ($param) {
+                        'validate_callback' => function ( $param ) {
                             return is_numeric( $param ) && $param > 0 && $param <= 100;
                         }
                     ],
@@ -89,25 +271,25 @@ class Wholesaler_Batch_Import {
                 'callback'            => [ $this, 'handle_background_import' ],
                 'permission_callback' => '__return_true',
                 'args'                => [
-                    'total_batches' => [
+                    'total_batches'      => [
                         'default'           => 1,
                         'sanitize_callback' => 'absint',
-                        'validate_callback' => function ($param) {
+                        'validate_callback' => function ( $param ) {
                             return is_numeric( $param ) && $param > 0 && $param <= 50;
                         }
                     ],
                     'products_per_batch' => [
                         'default'           => 50,
                         'sanitize_callback' => 'absint',
-                        'validate_callback' => function ($param) {
+                        'validate_callback' => function ( $param ) {
                             return is_numeric( $param ) && $param > 0 && $param <= 100;
                         }
                     ],
-                    'process_images' => [
+                    'process_images'     => [
                         'default'           => true,
                         'sanitize_callback' => 'rest_sanitize_boolean',
                     ],
-                    'update_existing' => [
+                    'update_existing'    => [
                         'default'           => true,
                         'sanitize_callback' => 'rest_sanitize_boolean',
                     ],
@@ -120,14 +302,14 @@ class Wholesaler_Batch_Import {
                 'callback'            => [ $this, 'handle_bulk_delete_products' ],
                 'permission_callback' => '__return_true',
                 'args'                => [
-                    'batch_size' => [
+                    'batch_size'       => [
                         'default'           => 50,
                         'sanitize_callback' => 'absint',
-                        'validate_callback' => function ($param) {
+                        'validate_callback' => function ( $param ) {
                             return is_numeric( $param ) && $param > 0 && $param <= 100;
                         }
                     ],
-                    'delete_images' => [
+                    'delete_images'    => [
                         'default'           => true,
                         'sanitize_callback' => 'rest_sanitize_boolean',
                     ],
@@ -155,7 +337,7 @@ class Wholesaler_Batch_Import {
                         'default'           => 'all',
                         'sanitize_callback' => 'sanitize_text_field',
                     ],
-                    'limit' => [
+                    'limit'  => [
                         'default'           => 20,
                         'sanitize_callback' => 'absint',
                     ],
@@ -168,7 +350,7 @@ class Wholesaler_Batch_Import {
      * Handle batch import request with performance optimizations
      */
     public function handle_batch_import( WP_REST_Request $request ) {
-        $batch_size = $request->get_param( 'batch_size' );
+        $batch_size             = $request->get_param( 'batch_size' );
         $this->performance_mode = $request->get_param( 'performance_mode' );
 
         // Enable performance mode optimizations
@@ -178,7 +360,7 @@ class Wholesaler_Batch_Import {
 
         try {
             $result = $this->batch_import_products( $batch_size );
-            
+
             if ( $this->performance_mode ) {
                 $this->disable_performance_mode();
             }
@@ -188,7 +370,7 @@ class Wholesaler_Batch_Import {
             if ( $this->performance_mode ) {
                 $this->disable_performance_mode();
             }
-            
+
             $this->log_message( "Batch import error: " . $e->getMessage() );
             return new WP_REST_Response( [
                 'success' => false,
@@ -203,24 +385,24 @@ class Wholesaler_Batch_Import {
     private function enable_performance_mode() {
         // Disable cache purging during import
         add_filter( 'rocket_is_importing', '__return_true' );
-        
+
         // Disable object cache for products during import
         wp_cache_flush();
-        
+
         // Disable WooCommerce product sync
         remove_action( 'woocommerce_product_object_updated_props', 'wc_products_force_lookup_table_update' );
-        
+
         // Disable search index updates
         add_filter( 'woocommerce_product_search_index_enabled', '__return_false' );
-        
+
         // Increase memory limit if possible
         if ( function_exists( 'ini_set' ) ) {
             ini_set( 'memory_limit', '512M' );
         }
-        
+
         // Disable WordPress auto-save and revisions temporarily
         remove_action( 'pre_post_update', 'wp_save_post_revision' );
-        
+
         $this->log_message( "Performance mode enabled" );
     }
 
@@ -230,21 +412,21 @@ class Wholesaler_Batch_Import {
     private function disable_performance_mode() {
         // Re-enable cache purging
         remove_filter( 'rocket_is_importing', '__return_true' );
-        
+
         // Re-enable WooCommerce product sync
         add_action( 'woocommerce_product_object_updated_props', 'wc_products_force_lookup_table_update' );
-        
+
         // Re-enable search index updates
         remove_filter( 'woocommerce_product_search_index_enabled', '__return_false' );
-        
+
         // Re-enable WordPress auto-save and revisions
         add_action( 'pre_post_update', 'wp_save_post_revision' );
-        
+
         // Clear cache after import
         if ( function_exists( 'wp_cache_flush' ) ) {
             wp_cache_flush();
         }
-        
+
         $this->log_message( "Performance mode disabled" );
     }
 
@@ -266,27 +448,46 @@ class Wholesaler_Batch_Import {
 
             // Pre-load existing products for faster lookups
             $existing_products = $this->bulk_check_existing_products( $products );
-            
+
             // Separate products into create and update batches
-            $create_batch = [];
-            $update_batch = [];
+            $create_batch          = [];
+            $update_batch          = [];
             $product_ids_to_update = [];
+            $skipped_product_ids   = [];
 
             foreach ( $products as $product ) {
                 $mapped_product = $this->map_product_data( $product->wholesaler_name, $product );
-                $existing_id = $existing_products[ $mapped_product['sku'] ] ?? null;
+                $existing_id    = $existing_products[$mapped_product['sku']] ?? null;
+
+                put_program_logs( 'category: ' . $mapped_product['category_terms'] );
+                update_option( 'sync_category_term', $mapped_product['category_terms'] );
+
+                // Skip products with excluded categories
+                if ( $this->has_excluded_category( $mapped_product ) ) {
+                    $skipped_product_ids[] = $product->id;
+                    $category_names        = array_map( function ( $cat ) {
+                        return $cat['name'] ?? '';
+                    }, $mapped_product['category_terms'] ?? [] );
+                    put_program_logs( sprintf(
+                        'Skipping product %s (SKU: %s) - excluded category: %s',
+                        $mapped_product['name'] ?? 'N/A',
+                        $mapped_product['sku'] ?? 'N/A',
+                        implode( ', ', $category_names )
+                    ) );
+                    continue; // Skip to next product
+                }
 
                 if ( $existing_id ) {
-                    $update_batch[] = [
-                        'id' => $existing_id,
-                        'data' => $this->prepare_update_data( $mapped_product ),
-                        'original' => $product
+                    $update_batch[]          = [
+                        'id'       => $existing_id,
+                        'data'     => $this->prepare_update_data( $mapped_product ),
+                        'original' => $product,
                     ];
                     $product_ids_to_update[] = $product->id;
                 } else {
                     $create_batch[] = [
-                        'data' => $this->prepare_create_data( $mapped_product ),
-                        'original' => $product
+                        'data'     => $this->prepare_create_data( $mapped_product ),
+                        'original' => $product,
                     ];
                 }
             }
@@ -294,21 +495,21 @@ class Wholesaler_Batch_Import {
             $results = [
                 'created' => 0,
                 'updated' => 0,
-                'errors' => []
+                'errors'  => [],
             ];
 
             // Process create batch
             if ( !empty( $create_batch ) ) {
-                $create_result = $this->batch_create_products( $create_batch );
+                $create_result      = $this->batch_create_products( $create_batch );
                 $results['created'] = $create_result['success_count'];
-                $results['errors'] = array_merge( $results['errors'], $create_result['errors'] );
+                $results['errors']  = array_merge( $results['errors'], $create_result['errors'] );
             }
 
             // Process update batch
             if ( !empty( $update_batch ) ) {
-                $update_result = $this->batch_update_products( $update_batch );
+                $update_result      = $this->batch_update_products( $update_batch );
                 $results['updated'] = $update_result['success_count'];
-                $results['errors'] = array_merge( $results['errors'], $update_result['errors'] );
+                $results['errors']  = array_merge( $results['errors'], $update_result['errors'] );
             }
 
             // Bulk update database status
@@ -318,11 +519,11 @@ class Wholesaler_Batch_Import {
             $products_with_images = [];
             foreach ( $products as $product ) {
                 $mapped_product = $this->map_product_data( $product->wholesaler_name, $product );
-                $existing_id = $existing_products[ $mapped_product['sku'] ] ?? null;
-                
+                $existing_id    = $existing_products[$mapped_product['sku']] ?? null;
+
                 if ( !empty( $mapped_product['images_payload'] ) ) {
                     $product_id = $existing_id;
-                    
+
                     // For new products, find the created product ID
                     if ( !$existing_id && !empty( $create_result['created_products'] ) ) {
                         foreach ( $create_result['created_products'] as $created ) {
@@ -332,11 +533,11 @@ class Wholesaler_Batch_Import {
                             }
                         }
                     }
-                    
+
                     if ( $product_id ) {
                         $products_with_images[] = [
                             'product_id' => $product_id,
-                            'images' => $mapped_product['images_payload']
+                            'images'     => $mapped_product['images_payload'],
                         ];
                     }
                 }
@@ -348,18 +549,20 @@ class Wholesaler_Batch_Import {
             }
 
             return [
-                'success' => true,
-                'message' => sprintf( 
-                    'Batch import completed. Created: %d, Updated: %d, Images scheduled: %d', 
-                    $results['created'], 
+                'success'          => true,
+                'message'          => sprintf(
+                    'Batch import completed. Created: %d, Updated: %d, Skipped: %d, Images scheduled: %d',
+                    $results['created'],
                     $results['updated'],
+                    count( $skipped_product_ids ),
                     count( $products_with_images )
                 ),
-                'created' => $results['created'],
-                'updated' => $results['updated'],
-                'errors' => $results['errors'],
-                'total_processed' => count( $products ),
-                'images_scheduled' => count( $products_with_images )
+                'created'          => $results['created'],
+                'updated'          => $results['updated'],
+                'skipped'          => count( $skipped_product_ids ),
+                'errors'           => $results['errors'],
+                'total_processed'  => count( $products ),
+                'images_scheduled' => count( $products_with_images ),
             ];
 
         } catch (Exception $e) {
@@ -373,8 +576,8 @@ class Wholesaler_Batch_Import {
      */
     private function bulk_check_existing_products( $products ) {
         global $wpdb;
-        
-        $skus = array_map( function( $product ) {
+
+        $skus = array_map( function ( $product ) {
             $mapped = $this->map_product_data( $product->wholesaler_name, $product );
             return $mapped['sku'];
         }, $products );
@@ -384,7 +587,7 @@ class Wholesaler_Batch_Import {
         }
 
         $placeholders = implode( ',', array_fill( 0, count( $skus ), '%s' ) );
-        
+
         $query = $wpdb->prepare(
             "SELECT pm.meta_value as sku, p.ID as product_id 
              FROM {$wpdb->postmeta} pm 
@@ -396,10 +599,10 @@ class Wholesaler_Batch_Import {
         );
 
         $results = $wpdb->get_results( $query );
-        
+
         $existing_products = [];
         foreach ( $results as $result ) {
-            $existing_products[ $result->sku ] = (int) $result->product_id;
+            $existing_products[$result->sku] = (int) $result->product_id;
         }
 
         return $existing_products;
@@ -410,47 +613,47 @@ class Wholesaler_Batch_Import {
      */
     private function batch_create_products( $create_batch ) {
         $batch_data = [
-            'create' => array_column( $create_batch, 'data' )
+            'create' => array_column( $create_batch, 'data' ),
         ];
 
         $success_count = 0;
-        $errors = [];
+        $errors        = [];
 
         // log the create batch data
         // put_program_logs("create batch data: " . json_encode( $batch_data ) );
 
         try {
             $response = $this->client->post( 'products/batch', $batch_data );
-            
+
             if ( isset( $response->create ) ) {
                 foreach ( $response->create as $index => $result ) {
                     if ( isset( $result->id ) ) {
                         $success_count++;
-                        
+
                         // Handle variations for created products
                         $original_product = $create_batch[$index]['original'];
-                        $mapped_product = $this->map_product_data( $original_product->wholesaler_name, $original_product );
-                        
+                        $mapped_product   = $this->map_product_data( $original_product->wholesaler_name, $original_product );
+
                         if ( !empty( $mapped_product['variations'] ) ) {
                             $this->batch_create_variations( $result->id, $mapped_product['variations'] );
                         }
-                        
+
                         // Update taxonomies
                         $this->helpers->update_product_taxonomies( $result->id, $mapped_product );
-                        
+
                     } else {
                         $errors[] = "Failed to create product: " . ( $result->error->message ?? 'Unknown error' );
                     }
                 }
             }
 
-        } catch ( HttpClientException $e ) {
+        } catch (HttpClientException $e) {
             $errors[] = "Batch create API error: " . $e->getMessage();
         }
 
         return [
             'success_count' => $success_count,
-            'errors' => $errors
+            'errors'        => $errors,
         ];
     }
 
@@ -459,46 +662,46 @@ class Wholesaler_Batch_Import {
      */
     private function batch_update_products( $update_batch ) {
         $batch_data = [
-            'update' => array_map( function( $item ) {
-                return array_merge( ['id' => $item['id']], $item['data'] );
-            }, $update_batch )
+            'update' => array_map( function ( $item ) {
+                return array_merge( [ 'id' => $item['id'] ], $item['data'] );
+            }, $update_batch ),
         ];
 
         $success_count = 0;
-        $errors = [];
+        $errors        = [];
 
         // log the update batch data
         // put_program_logs("update batch data: " . json_encode( $batch_data ) );
 
         try {
             $response = $this->client->post( 'products/batch', $batch_data );
-            
+
             if ( isset( $response->update ) ) {
                 foreach ( $response->update as $index => $result ) {
                     if ( isset( $result->id ) ) {
                         $success_count++;
-                        
+
                         // Handle variations for updated products
                         $original_product = $update_batch[$index]['original'];
-                        $mapped_product = $this->map_product_data( $original_product->wholesaler_name, $original_product );
-                        
+                        $mapped_product   = $this->map_product_data( $original_product->wholesaler_name, $original_product );
+
                         if ( !empty( $mapped_product['variations'] ) ) {
                             $this->batch_update_variations( $result->id, $mapped_product['variations'] );
                         }
-                        
+
                     } else {
                         $errors[] = "Failed to update product ID {$update_batch[$index]['id']}: " . ( $result->error->message ?? 'Unknown error' );
                     }
                 }
             }
 
-        } catch ( HttpClientException $e ) {
+        } catch (HttpClientException $e) {
             $errors[] = "Batch update API error: " . $e->getMessage();
         }
 
         return [
             'success_count' => $success_count,
-            'errors' => $errors
+            'errors'        => $errors,
         ];
     }
 
@@ -519,12 +722,12 @@ class Wholesaler_Batch_Import {
         }
 
         $batch_data = [
-            'create' => $variations
+            'create' => $variations,
         ];
 
         try {
             $this->client->post( "products/{$product_id}/variations/batch", $batch_data );
-        } catch ( HttpClientException $e ) {
+        } catch (HttpClientException $e) {
             $this->log_message( "Batch variation creation failed for product {$product_id}: " . $e->getMessage() );
         }
     }
@@ -543,10 +746,10 @@ class Wholesaler_Batch_Import {
         $create_batch = [];
 
         foreach ( $variations as $variation ) {
-            $existing_id = $existing_variations[ $variation['sku'] ] ?? null;
-            
+            $existing_id = $existing_variations[$variation['sku']] ?? null;
+
             if ( $existing_id ) {
-                $update_batch[] = array_merge( ['id' => $existing_id], $variation );
+                $update_batch[] = array_merge( [ 'id' => $existing_id ], $variation );
             } else {
                 $create_batch[] = $variation;
             }
@@ -556,9 +759,9 @@ class Wholesaler_Batch_Import {
         if ( !empty( $update_batch ) ) {
             try {
                 $this->client->post( "products/{$product_id}/variations/batch", [
-                    'update' => $update_batch
+                    'update' => $update_batch,
                 ] );
-            } catch ( HttpClientException $e ) {
+            } catch (HttpClientException $e) {
                 $this->log_message( "Batch variation update failed for product {$product_id}: " . $e->getMessage() );
             }
         }
@@ -586,10 +789,10 @@ class Wholesaler_Batch_Import {
         );
 
         $results = $wpdb->get_results( $query );
-        
+
         $variations = [];
         foreach ( $results as $result ) {
-            $variations[ $result->sku ] = (int) $result->ID;
+            $variations[$result->sku] = (int) $result->ID;
         }
 
         return $variations;
@@ -628,10 +831,10 @@ class Wholesaler_Batch_Import {
         // put_program_logs("prepare update data: " . json_encode( $mapped_product ) );
 
         return [
-            'name'          => $mapped_product['name'],
-            'description'   => $mapped_product['description'],
-            'regular_price' => $mapped_product['regular_price'] ?? '',
-            'attributes'    => $mapped_product['attributes'] ?? [],
+            'name'        => $mapped_product['name'],
+            'description' => $mapped_product['description'],
+            // 'regular_price' => $mapped_product['regular_price'] ?? '',
+            'attributes'  => $mapped_product['attributes'] ?? [],
         ];
     }
 
@@ -648,9 +851,9 @@ class Wholesaler_Batch_Import {
 
         global $wpdb;
         $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
-        
+
         $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
-        
+
         $wpdb->query( $wpdb->prepare(
             "UPDATE {$table_name} SET status = %s WHERE id IN ({$placeholders})",
             Status_Enum::COMPLETED->value,
@@ -659,23 +862,49 @@ class Wholesaler_Batch_Import {
     }
 
     /**
+     * Check if product has any excluded categories
+     * 
+     * @param array $mapped_product The mapped product data
+     * @return bool True if product has excluded categories, false otherwise
+     */
+    private function has_excluded_category( $mapped_product ) {
+        if ( empty( $mapped_product['category_terms'] ) || !is_array( $mapped_product['category_terms'] ) ) {
+            return false;
+        }
+
+        // Extract category names from category_terms array
+        $product_categories = array_map( function ( $cat ) {
+            return isset( $cat['name'] ) ? $cat['name'] : '';
+        }, $mapped_product['category_terms'] );
+
+        // Check if any product category matches excluded categories
+        foreach ( $product_categories as $category ) {
+            if ( in_array( $category, $this->excluded_categories, true ) ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
      * Get products from database with optimized query
      */
     public function get_products_from_db( $limit = 50 ) {
         try {
             global $wpdb;
-            
-            $products_table = $wpdb->prefix . 'sync_wholesaler_products_data';
+
+            $products_table   = $wpdb->prefix . 'sync_wholesaler_products_data';
             $this->table_name = $products_table;
 
             // Optimized query with index hints
-            $sql = $wpdb->prepare( 
+            $sql = $wpdb->prepare(
                 "SELECT * FROM {$products_table} 
                  WHERE status = %s 
                  ORDER BY id ASC 
-                 LIMIT %d", 
-                Status_Enum::PENDING->value, 
-                $limit 
+                 LIMIT %d",
+                Status_Enum::PENDING->value,
+                $limit
             );
 
             $products = $wpdb->get_results( $sql );
@@ -718,52 +947,52 @@ class Wholesaler_Batch_Import {
         // log the handle background import data
         // put_program_logs("handle background import data: " . json_encode( $request->get_params() ) );
 
-        $total_batches = $request->get_param( 'total_batches' );
+        $total_batches      = $request->get_param( 'total_batches' );
         $products_per_batch = $request->get_param( 'products_per_batch' );
-        $process_images = $request->get_param( 'process_images' );
-        $update_existing = $request->get_param( 'update_existing' );
-        
+        $process_images     = $request->get_param( 'process_images' );
+        $update_existing    = $request->get_param( 'update_existing' );
+
         // Create background job data
         $job_data = [
-            'total_batches' => $total_batches,
+            'total_batches'      => $total_batches,
             'products_per_batch' => $products_per_batch,
-            'process_images' => $process_images,
-            'update_existing' => $update_existing,
-            'started_at' => current_time( 'mysql' ),
-            'status' => 'scheduled'
+            'process_images'     => $process_images,
+            'update_existing'    => $update_existing,
+            'started_at'         => current_time( 'mysql' ),
+            'status'             => 'scheduled',
         ];
-        
+
         // Store job data for tracking
         $job_id = $this->create_background_job( $job_data );
-        
+
         // Schedule background processing with multiple fallback methods
         $scheduled = wp_schedule_single_event( time() + 10, 'wholesaler_background_import', [ $job_id, $job_data ] );
 
         // log the scheduled data
         // put_program_logs("scheduled data: " . json_encode( $scheduled ) );
-        
+
         // Fallback 1: Try immediate processing if scheduling fails
-        if ( ! $scheduled ) {
+        if ( !$scheduled ) {
             wp_schedule_single_event( time() + 5, 'wholesaler_background_import', [ $job_id, $job_data ] );
         }
-        
+
         // Fallback 2: Add to performance manager queue as backup
         $this->add_to_performance_queue( $job_id, $job_data );
-        
+
         // Fallback 3: Set up a recurring check for stuck jobs
-        if ( ! wp_next_scheduled( 'wholesaler_check_stuck_jobs' ) ) {
+        if ( !wp_next_scheduled( 'wholesaler_check_stuck_jobs' ) ) {
             wp_schedule_event( time() + 60, 'every_minute', 'wholesaler_check_stuck_jobs' );
         }
-        
+
         return new WP_REST_Response( [
-            'success' => true,
-            'message' => "Background import scheduled for {$total_batches} batches with {$products_per_batch} products each",
-            'job_id' => $job_id,
+            'success'                  => true,
+            'message'                  => "Background import scheduled for {$total_batches} batches with {$products_per_batch} products each",
+            'job_id'                   => $job_id,
             'total_products_estimated' => $total_batches * $products_per_batch,
-            'process_images' => $process_images,
-            'update_existing' => $update_existing,
-            'scheduled' => $scheduled,
-            'fallbacks_enabled' => true
+            'process_images'           => $process_images,
+            'update_existing'          => $update_existing,
+            'scheduled'                => $scheduled,
+            'fallbacks_enabled'        => true,
         ], 200 );
     }
 
@@ -772,22 +1001,22 @@ class Wholesaler_Batch_Import {
      */
     private function create_background_job( $job_data ) {
         global $wpdb;
-        
+
         $table_name = $wpdb->prefix . 'wholesaler_background_jobs';
-        
+
         // Create table if it doesn't exist
         $this->create_background_jobs_table();
-        
+
         $wpdb->insert(
             $table_name,
             [
-                'job_data' => wp_json_encode( $job_data ),
-                'status' => 'scheduled',
-                'created_at' => current_time( 'mysql' )
+                'job_data'   => wp_json_encode( $job_data ),
+                'status'     => 'scheduled',
+                'created_at' => current_time( 'mysql' ),
             ],
             [ '%s', '%s', '%s' ]
         );
-        
+
         return $wpdb->insert_id;
     }
 
@@ -796,10 +1025,10 @@ class Wholesaler_Batch_Import {
      */
     private function create_background_jobs_table() {
         global $wpdb;
-        
-        $table_name = $wpdb->prefix . 'wholesaler_background_jobs';
+
+        $table_name      = $wpdb->prefix . 'wholesaler_background_jobs';
         $charset_collate = $wpdb->get_charset_collate();
-        
+
         $sql = "CREATE TABLE IF NOT EXISTS {$table_name} (
             id bigint(20) NOT NULL AUTO_INCREMENT,
             job_data longtext NOT NULL,
@@ -817,7 +1046,7 @@ class Wholesaler_Batch_Import {
             KEY idx_status (status),
             KEY idx_created (created_at)
         ) $charset_collate;";
-        
+
         require_once( ABSPATH . 'wp-admin/includes/upgrade.php' );
         dbDelta( $sql );
     }
@@ -829,14 +1058,14 @@ class Wholesaler_Batch_Import {
         // Add to the performance manager queue system as backup
         if ( class_exists( 'Wholesaler_Performance_Manager' ) ) {
             $performance_manager = new Wholesaler_Performance_Manager();
-            
+
             // Schedule via performance manager as backup
             wp_schedule_single_event( time() + 30, 'wholesaler_process_queue', [
                 'job_type' => 'background_import',
                 'job_data' => [
-                    'job_id' => $job_id,
-                    'job_data' => $job_data
-                ]
+                    'job_id'   => $job_id,
+                    'job_data' => $job_data,
+                ],
             ] );
         }
     }
@@ -846,9 +1075,9 @@ class Wholesaler_Batch_Import {
      */
     public function check_stuck_jobs() {
         global $wpdb;
-        
+
         $table_name = $wpdb->prefix . 'wholesaler_background_jobs';
-        
+
         // Find jobs that have been scheduled for more than 5 minutes
         $stuck_jobs = $wpdb->get_results(
             "SELECT * FROM {$table_name} 
@@ -856,10 +1085,10 @@ class Wholesaler_Batch_Import {
              AND created_at < DATE_SUB(NOW(), INTERVAL 5 MINUTE)
              LIMIT 5"
         );
-        
+
         foreach ( $stuck_jobs as $job ) {
             $job_data = json_decode( $job->job_data, true );
-            
+
             // Mark as running to prevent duplicate processing
             $wpdb->update(
                 $table_name,
@@ -868,18 +1097,18 @@ class Wholesaler_Batch_Import {
                 [ '%s' ],
                 [ '%d' ]
             );
-            
+
             // Process the stuck job immediately
             try {
                 $this->process_background_job( $job->id, $job_data );
-            } catch ( Exception $e ) {
+            } catch (Exception $e) {
                 // Mark as failed if processing fails
                 $wpdb->update(
                     $table_name,
                     [
-                        'status' => 'failed',
+                        'status'         => 'failed',
                         'error_messages' => wp_json_encode( [ 'Stuck job processing failed: ' . $e->getMessage() ] ),
-                        'completed_at' => current_time( 'mysql' )
+                        'completed_at'   => current_time( 'mysql' ),
                     ],
                     [ 'id' => $job->id ],
                     [ '%s', '%s', '%s' ],
@@ -894,89 +1123,89 @@ class Wholesaler_Batch_Import {
      */
     public function process_background_job( $job_id, $job_data ) {
         global $wpdb;
-        
+
         $table_name = $wpdb->prefix . 'wholesaler_background_jobs';
-        
+
         try {
             // Update job status to running
             $wpdb->update(
                 $table_name,
                 [
-                    'status' => 'running',
-                    'started_at' => current_time( 'mysql' )
+                    'status'     => 'running',
+                    'started_at' => current_time( 'mysql' ),
                 ],
                 [ 'id' => $job_id ],
                 [ '%s', '%s' ],
                 [ '%d' ]
             );
-            
-            $total_batches = $job_data['total_batches'];
+
+            $total_batches      = $job_data['total_batches'];
             $products_per_batch = $job_data['products_per_batch'];
-            $process_images = $job_data['process_images'];
-            $update_existing = $job_data['update_existing'];
-            
-            $total_created = 0;
-            $total_updated = 0;
-            $total_errors = 0;
-            $error_messages = [];
+            $process_images     = $job_data['process_images'];
+            $update_existing    = $job_data['update_existing'];
+
+            $total_created        = 0;
+            $total_updated        = 0;
+            $total_errors         = 0;
+            $error_messages       = [];
             $products_with_images = [];
-            $product_state = '';
-            
+            $product_state        = '';
+
             // Enable performance mode for background processing
             $this->enable_performance_mode();
-            
+
             for ( $i = 0; $i < $total_batches; $i++ ) {
                 try {
                     // Process batch with enhanced tracking
-                    $result = $this->batch_import_products_enhanced( 
-                        $products_per_batch, 
-                        $update_existing 
+                    $result = $this->batch_import_products_enhanced(
+                        $products_per_batch,
+                        $update_existing
                     );
-                    
+
                     if ( $result['success'] ) {
                         $total_created += $result['created'];
                         $total_updated += $result['updated'];
                         $product_state = $result['product_state'];
-                        
+
                         // Collect products with images for later processing
                         if ( $process_images && 'new' == $product_state && !empty( $result['products_with_images'] ) ) {
-                            $products_with_images = array_merge( 
-                                $products_with_images, 
-                                $result['products_with_images'] 
+                            $products_with_images = array_merge(
+                                $products_with_images,
+                                $result['products_with_images']
                             );
                         }
                     }
-                    
+
                     if ( !empty( $result['errors'] ) ) {
                         $total_errors += count( $result['errors'] );
                         $error_messages = array_merge( $error_messages, $result['errors'] );
                     }
-                    
+
                     // Update progress
                     $progress = round( ( ( $i + 1 ) / $total_batches ) * 100 );
                     $wpdb->update(
                         $table_name,
                         [
-                            'progress' => $progress,
+                            'progress'        => $progress,
                             'total_processed' => $total_created + $total_updated,
-                            'total_created' => $total_created,
-                            'total_updated' => $total_updated,
-                            'total_errors' => $total_errors
+                            'total_created'   => $total_created,
+                            'total_updated'   => $total_updated,
+                            'total_errors'    => $total_errors,
                         ],
                         [ 'id' => $job_id ],
                         [ '%d', '%d', '%d', '%d', '%d' ],
                         [ '%d' ]
                     );
-                    
+
                     // Small delay between batches
                     sleep( 2 );
-                    
-                } catch ( Exception $e ) {
+
+                } catch (Exception $e) {
                     $total_errors++;
                     $error_messages[] = "Batch {$i}: " . $e->getMessage();
                 }
             }
-            
+
             // Process images in background if requested
             if ( $process_images && 'new' == $product_state && !empty( $products_with_images ) ) {
                 // log the schedule bulk image processing data
@@ -984,42 +1213,42 @@ class Wholesaler_Batch_Import {
 
                 $this->schedule_bulk_image_processing( $products_with_images );
             }
-            
+
             // Disable performance mode
             $this->disable_performance_mode();
-            
+
             // Mark job as completed
             $wpdb->update(
                 $table_name,
                 [
-                    'status' => 'completed',
-                    'progress' => 100,
+                    'status'          => 'completed',
+                    'progress'        => 100,
                     'total_processed' => $total_created + $total_updated,
-                    'total_created' => $total_created,
-                    'total_updated' => $total_updated,
-                    'total_errors' => $total_errors,
-                    'error_messages' => wp_json_encode( $error_messages ),
-                    'completed_at' => current_time( 'mysql' )
+                    'total_created'   => $total_created,
+                    'total_updated'   => $total_updated,
+                    'total_errors'    => $total_errors,
+                    'error_messages'  => wp_json_encode( $error_messages ),
+                    'completed_at'    => current_time( 'mysql' ),
                 ],
                 [ 'id' => $job_id ],
                 [ '%s', '%d', '%d', '%d', '%d', '%d', '%s', '%s' ],
                 [ '%d' ]
             );
-            
-        } catch ( Exception $e ) {
+
+        } catch (Exception $e) {
             // Mark job as failed
             $wpdb->update(
                 $table_name,
                 [
-                    'status' => 'failed',
+                    'status'         => 'failed',
                     'error_messages' => wp_json_encode( [ $e->getMessage() ] ),
-                    'completed_at' => current_time( 'mysql' )
+                    'completed_at'   => current_time( 'mysql' ),
                 ],
                 [ 'id' => $job_id ],
                 [ '%s', '%s', '%s' ],
                 [ '%d' ]
             );
-            
+
             $this->disable_performance_mode();
         }
     }
@@ -1034,35 +1263,53 @@ class Wholesaler_Batch_Import {
 
             if ( empty( $products ) ) {
                 return [
-                    'success'  => true,
-                    'message'  => 'No pending products to import',
-                    'created' => 0,
-                    'updated' => 0,
-                    'errors' => [],
-                    'products_with_images' => []
+                    'success'              => true,
+                    'message'              => 'No pending products to import',
+                    'created'              => 0,
+                    'updated'              => 0,
+                    'errors'               => [],
+                    'products_with_images' => [],
                 ];
             }
 
             // Pre-load existing products for faster lookups
             $existing_products = $this->bulk_check_existing_products( $products );
-            
+
             // Separate products into create and update batches
-            $create_batch = [];
-            $update_batch = [];
+            $create_batch          = [];
+            $update_batch          = [];
             $product_ids_to_update = [];
-            $products_with_images = [];
-            $product_state = '';
+            $products_with_images  = [];
+            $product_state         = '';
+            $skipped_product_ids   = [];
 
             foreach ( $products as $product ) {
                 $mapped_product = $this->map_product_data( $product->wholesaler_name, $product );
-                $existing_id = $existing_products[ $mapped_product['sku'] ] ?? null;
+                $existing_id    = $existing_products[$mapped_product['sku']] ?? null;
+
+                put_program_logs( 'category: ' . json_encode( $mapped_product['category_terms'] ) );
+
+                // Skip products with excluded categories
+                if ( $this->has_excluded_category( $mapped_product ) ) {
+                    $skipped_product_ids[] = $product->id;
+                    $category_names        = array_map( function ( $cat ) {
+                        return $cat['name'] ?? '';
+                    }, $mapped_product['category_terms'] ?? [] );
+                    put_program_logs( sprintf(
+                        'Skipping product %s (SKU: %s) - excluded category: %s',
+                        $mapped_product['name'] ?? 'N/A',
+                        $mapped_product['sku'] ?? 'N/A',
+                        implode( ', ', $category_names )
+                    ) );
+                    continue; // Skip to next product
+                }
 
                 // Collect products with images for later processing
                 if ( !empty( $mapped_product['images_payload'] ) ) {
                     $products_with_images[] = [
-                        'product_id' => $existing_id ?: 'new',
-                        'images' => $mapped_product['images_payload'],
-                        'original_product' => $product
+                        'product_id'       => $existing_id ?: 'new',
+                        'images'           => $mapped_product['images_payload'],
+                        'original_product' => $product,
                     ];
                 }
 
@@ -1071,11 +1318,11 @@ class Wholesaler_Batch_Import {
                     // set product state as existing
                     $product_state = 'existing';
 
-                    $update_batch[] = [
-                        'id' => $existing_id,
-                        'data' => $this->prepare_update_data( $mapped_product ),
-                        'original' => $product,
-                        'mapped_product' => $mapped_product
+                    $update_batch[]          = [
+                        'id'             => $existing_id,
+                        'data'           => $this->prepare_update_data( $mapped_product ),
+                        'original'       => $product,
+                        'mapped_product' => $mapped_product,
                     ];
                     $product_ids_to_update[] = $product->id;
                 } elseif ( !$existing_id ) {
@@ -1084,9 +1331,9 @@ class Wholesaler_Batch_Import {
                     $product_state = 'new';
 
                     $create_batch[] = [
-                        'data' => $this->prepare_create_data( $mapped_product ),
-                        'original' => $product,
-                        'mapped_product' => $mapped_product
+                        'data'           => $this->prepare_create_data( $mapped_product ),
+                        'original'       => $product,
+                        'mapped_product' => $mapped_product,
                     ];
                 }
             }
@@ -1094,42 +1341,44 @@ class Wholesaler_Batch_Import {
             $results = [
                 'created' => 0,
                 'updated' => 0,
-                'errors' => []
+                'errors'  => [],
             ];
 
             // Process create batch
             if ( !empty( $create_batch ) ) {
-                $create_result = $this->batch_create_products_enhanced( $create_batch );
+                $create_result      = $this->batch_create_products_enhanced( $create_batch );
                 $results['created'] = $create_result['success_count'];
-                $results['errors'] = array_merge( $results['errors'], $create_result['errors'] );
-                
+                $results['errors']  = array_merge( $results['errors'], $create_result['errors'] );
+
                 // Update products_with_images with new product IDs
                 $this->update_image_product_ids( $products_with_images, $create_result['created_products'] );
             }
 
             // Process update batch with proper variation handling
             if ( !empty( $update_batch ) ) {
-                $update_result = $this->batch_update_products_enhanced( $update_batch );
+                $update_result      = $this->batch_update_products_enhanced( $update_batch );
                 $results['updated'] = $update_result['success_count'];
-                $results['errors'] = array_merge( $results['errors'], $update_result['errors'] );
+                $results['errors']  = array_merge( $results['errors'], $update_result['errors'] );
             }
 
-            // Bulk update database status
+            // Bulk update database status (includes skipped products)
             $this->bulk_mark_as_complete( array_column( $products, 'id' ) );
 
             return [
-                'success' => true,
-                'message' => sprintf( 
-                    'Enhanced batch import completed. Created: %d, Updated: %d', 
-                    $results['created'], 
-                    $results['updated'] 
+                'success'              => true,
+                'message'              => sprintf(
+                    'Enhanced batch import completed. Created: %d, Updated: %d, Skipped: %d',
+                    $results['created'],
+                    $results['updated'],
+                    count( $skipped_product_ids )
                 ),
-                'created' => $results['created'],
-                'updated' => $results['updated'],
-                'errors' => $results['errors'],
-                'total_processed' => count( $products ),
-                'product_state' => $product_state, // is the product new or existing
-                'products_with_images' => $products_with_images
+                'created'              => $results['created'],
+                'updated'              => $results['updated'],
+                'skipped'              => count( $skipped_product_ids ),
+                'errors'               => $results['errors'],
+                'total_processed'      => count( $products ),
+                'product_state'        => $product_state, // is the product new or existing
+                'products_with_images' => $products_with_images,
             ];
 
         } catch (Exception $e) {
@@ -1143,51 +1392,51 @@ class Wholesaler_Batch_Import {
      */
     private function batch_create_products_enhanced( $create_batch ) {
         $batch_data = [
-            'create' => array_column( $create_batch, 'data' )
+            'create' => array_column( $create_batch, 'data' ),
         ];
 
-        $success_count = 0;
-        $errors = [];
+        $success_count    = 0;
+        $errors           = [];
         $created_products = [];
 
         try {
             $response = $this->client->post( 'products/batch', $batch_data );
-            
+
             if ( isset( $response->create ) ) {
                 foreach ( $response->create as $index => $result ) {
                     if ( isset( $result->id ) ) {
                         $success_count++;
                         $created_products[] = [
-                            'wc_id' => $result->id,
+                            'wc_id'          => $result->id,
                             'original_index' => $index,
-                            'sku' => $create_batch[$index]['data']['sku']
+                            'sku'            => $create_batch[$index]['data']['sku'],
                         ];
-                        
+
                         // Handle variations for created products with enhanced variation support
                         $original_product = $create_batch[$index]['original'];
-                        $mapped_product = $create_batch[$index]['mapped_product'];
-                        
+                        $mapped_product   = $create_batch[$index]['mapped_product'];
+
                         if ( !empty( $mapped_product['variations'] ) ) {
                             $this->batch_create_variations_enhanced( $result->id, $mapped_product['variations'] );
                         }
-                        
+
                         // Update taxonomies
                         $this->helpers->update_product_taxonomies( $result->id, $mapped_product );
-                        
+
                     } else {
                         $errors[] = "Failed to create product: " . ( $result->error->message ?? 'Unknown error' );
                     }
                 }
             }
 
-        } catch ( HttpClientException $e ) {
+        } catch (HttpClientException $e) {
             $errors[] = "Batch create API error: " . $e->getMessage();
         }
 
         return [
-            'success_count' => $success_count,
-            'errors' => $errors,
-            'created_products' => $created_products
+            'success_count'    => $success_count,
+            'errors'           => $errors,
+            'created_products' => $created_products,
         ];
     }
 
@@ -1196,46 +1445,46 @@ class Wholesaler_Batch_Import {
      */
     private function batch_update_products_enhanced( $update_batch ) {
         $batch_data = [
-            'update' => array_map( function( $item ) {
-                return array_merge( ['id' => $item['id']], $item['data'] );
-            }, $update_batch )
+            'update' => array_map( function ( $item ) {
+                return array_merge( [ 'id' => $item['id'] ], $item['data'] );
+            }, $update_batch ),
         ];
 
         $success_count = 0;
-        $errors = [];
+        $errors        = [];
 
         // log the update batch data
         // put_program_logs("update batch data: " . json_encode( $batch_data ) );
 
         try {
             $response = $this->client->post( 'products/batch', $batch_data );
-            
+
             if ( isset( $response->update ) ) {
                 foreach ( $response->update as $index => $result ) {
                     if ( isset( $result->id ) ) {
                         $success_count++;
-                        
+
                         // Handle variations for updated products with enhanced support
                         $original_product = $update_batch[$index]['original'];
-                        $mapped_product = $update_batch[$index]['mapped_product'];
-                        
+                        $mapped_product   = $update_batch[$index]['mapped_product'];
+
                         if ( !empty( $mapped_product['variations'] ) ) {
                             $this->batch_update_variations_enhanced( $result->id, $mapped_product['variations'] );
                         }
-                        
+
                     } else {
                         $errors[] = "Failed to update product ID {$update_batch[$index]['id']}: " . ( $result->error->message ?? 'Unknown error' );
                     }
                 }
             }
 
-        } catch ( HttpClientException $e ) {
+        } catch (HttpClientException $e) {
             $errors[] = "Batch update API error: " . $e->getMessage();
         }
 
         return [
             'success_count' => $success_count,
-            'errors' => $errors
+            'errors'        => $errors,
         ];
     }
 
@@ -1251,19 +1500,19 @@ class Wholesaler_Batch_Import {
         $chunk_size = 25;
         foreach ( array_chunk( $variations, $chunk_size ) as $chunk ) {
             $batch_data = [
-                'create' => $chunk
+                'create' => $chunk,
             ];
 
             try {
                 $this->client->post( "products/{$product_id}/variations/batch", $batch_data );
-            } catch ( HttpClientException $e ) {
+            } catch (HttpClientException $e) {
                 $this->log_message( "Enhanced variation creation failed for product {$product_id}: " . $e->getMessage() );
-                
+
                 // Fallback: try individual creation
                 foreach ( $chunk as $variation ) {
                     try {
                         $this->client->post( "products/{$product_id}/variations", $variation );
-                    } catch ( HttpClientException $fallback_e ) {
+                    } catch (HttpClientException $fallback_e) {
                         // Log but continue
                         $this->log_message( "Individual variation creation failed: " . $fallback_e->getMessage() );
                     }
@@ -1278,15 +1527,15 @@ class Wholesaler_Batch_Import {
     private function batch_update_variations_enhanced( $product_id, $variations ) {
         // Get existing variations with better caching
         $existing_variations = $this->get_existing_variations_enhanced( $product_id );
-        
+
         $update_batch = [];
         $create_batch = [];
 
         foreach ( $variations as $variation ) {
-            $existing_id = $existing_variations[ $variation['sku'] ] ?? null;
-            
+            $existing_id = $existing_variations[$variation['sku']] ?? null;
+
             if ( $existing_id ) {
-                $update_batch[] = array_merge( ['id' => $existing_id], $variation );
+                $update_batch[] = array_merge( [ 'id' => $existing_id ], $variation );
             } else {
                 $create_batch[] = $variation;
             }
@@ -1296,9 +1545,9 @@ class Wholesaler_Batch_Import {
         if ( !empty( $update_batch ) ) {
             try {
                 $this->client->post( "products/{$product_id}/variations/batch", [
-                    'update' => $update_batch
+                    'update' => $update_batch,
                 ] );
-            } catch ( HttpClientException $e ) {
+            } catch (HttpClientException $e) {
                 $this->log_message( "Enhanced variation update failed for product {$product_id}: " . $e->getMessage() );
             }
         }
@@ -1314,13 +1563,13 @@ class Wholesaler_Batch_Import {
      */
     private function get_existing_variations_enhanced( $product_id ) {
         static $variations_cache = [];
-        
-        if ( isset( $variations_cache[ $product_id ] ) ) {
-            return $variations_cache[ $product_id ];
+
+        if ( isset( $variations_cache[$product_id] ) ) {
+            return $variations_cache[$product_id];
         }
-        
+
         global $wpdb;
-        
+
         $query = $wpdb->prepare(
             "SELECT p.ID, pm.meta_value as sku 
              FROM {$wpdb->posts} p 
@@ -1333,13 +1582,13 @@ class Wholesaler_Batch_Import {
         );
 
         $results = $wpdb->get_results( $query );
-        
+
         $variations = [];
         foreach ( $results as $result ) {
-            $variations[ $result->sku ] = (int) $result->ID;
+            $variations[$result->sku] = (int) $result->ID;
         }
-        
-        $variations_cache[ $product_id ] = $variations;
+
+        $variations_cache[$product_id] = $variations;
         return $variations;
     }
 
@@ -1369,7 +1618,7 @@ class Wholesaler_Batch_Import {
 
         foreach ( $products_with_images as $image_data ) {
             if ( $image_data['product_id'] !== 'new' && !empty( $image_data['images'] ) ) {
-                
+
                 // Check if product already has images to prevent duplicates
                 if ( $this->product_has_images( $image_data['product_id'] ) ) {
                     // log the product has images data
@@ -1377,7 +1626,7 @@ class Wholesaler_Batch_Import {
 
                     continue; // Skip if product already has images
                 }
-                
+
                 // Extract image URLs from the images payload
                 $image_urls = [];
                 foreach ( $image_data['images'] as $image ) {
@@ -1385,24 +1634,24 @@ class Wholesaler_Batch_Import {
                         $image_urls[] = $image['src'];
                     }
                 }
-                
+
                 if ( !empty( $image_urls ) ) {
                     // Filter out images that already exist for this product
                     $new_image_urls = $this->filter_existing_images( $image_data['product_id'], $image_urls );
 
                     // log the new image urls data
                     // put_program_logs("new image urls data: " . json_encode( $new_image_urls ) );
-                    
+
                     if ( !empty( $new_image_urls ) ) {
                         // Schedule image processing with a small delay
 
                         wp_schedule_single_event( time() + rand( 30, 120 ), 'wholesaler_process_images_batch', [
                             [
-                                'product_id' => $image_data['product_id'],
-                                'images' => $new_image_urls,
-                                'batch_index' => 0,
-                                'total_batches' => 1
-                            ]
+                                'product_id'    => $image_data['product_id'],
+                                'images'        => $new_image_urls,
+                                'batch_index'   => 0,
+                                'total_batches' => 1,
+                            ],
                         ] );
                     }
                 }
@@ -1419,13 +1668,13 @@ class Wholesaler_Batch_Import {
         if ( $featured_image ) {
             return true;
         }
-        
+
         // Check for gallery images
         $gallery_images = get_post_meta( $product_id, '_product_image_gallery', true );
         if ( !empty( $gallery_images ) ) {
             return true;
         }
-        
+
         return false;
     }
 
@@ -1434,16 +1683,16 @@ class Wholesaler_Batch_Import {
      */
     private function filter_existing_images( $product_id, $image_urls ) {
         global $wpdb;
-        
+
         // Get existing image URLs for this product
         $existing_urls = [];
-        
+
         // Get featured image URL
         $featured_id = get_post_thumbnail_id( $product_id );
         if ( $featured_id ) {
             $existing_urls[] = wp_get_attachment_url( $featured_id );
         }
-        
+
         // Get gallery image URLs
         $gallery_ids = get_post_meta( $product_id, '_product_image_gallery', true );
         if ( $gallery_ids ) {
@@ -1455,7 +1704,7 @@ class Wholesaler_Batch_Import {
                 }
             }
         }
-        
+
         // Also check by original URL metadata to catch previously imported images
         $existing_original_urls = $wpdb->get_col( $wpdb->prepare(
             "SELECT pm.meta_value 
@@ -1465,27 +1714,27 @@ class Wholesaler_Batch_Import {
              AND p.post_parent = %d",
             $product_id
         ) );
-        
+
         $existing_urls = array_merge( $existing_urls, $existing_original_urls );
-        
+
         // Filter out URLs that already exist
         $new_urls = [];
         foreach ( $image_urls as $url ) {
             $url_basename = basename( $url );
-            $url_exists = false;
-            
+            $url_exists   = false;
+
             foreach ( $existing_urls as $existing_url ) {
                 if ( $existing_url === $url || basename( $existing_url ) === $url_basename ) {
                     $url_exists = true;
                     break;
                 }
             }
-            
+
             if ( !$url_exists ) {
                 $new_urls[] = $url;
             }
         }
-        
+
         return $new_urls;
     }
 
@@ -1493,14 +1742,14 @@ class Wholesaler_Batch_Import {
      * Handle bulk delete products with comprehensive cleanup
      */
     public function handle_bulk_delete_products( WP_REST_Request $request ) {
-        $batch_size = $request->get_param( 'batch_size' );
-        $delete_images = $request->get_param( 'delete_images' );
+        $batch_size       = $request->get_param( 'batch_size' );
+        $delete_images    = $request->get_param( 'delete_images' );
         $cleanup_database = $request->get_param( 'cleanup_database' );
 
         try {
             $result = $this->bulk_delete_products( $batch_size, $delete_images, $cleanup_database );
             return new WP_REST_Response( $result, 200 );
-        } catch ( Exception $e ) {
+        } catch (Exception $e) {
             $this->log_message( "Bulk delete error: " . $e->getMessage() );
             return new WP_REST_Response( [
                 'success' => false,
@@ -1514,9 +1763,9 @@ class Wholesaler_Batch_Import {
      */
     public function bulk_delete_products( $batch_size = 50, $delete_images = true, $cleanup_database = true ) {
         global $wpdb;
-        
+
         $start_time = microtime( true );
-        
+
         // Get products to delete
         $product_ids = $wpdb->get_col( $wpdb->prepare(
             "SELECT ID FROM {$wpdb->posts} 
@@ -1528,24 +1777,24 @@ class Wholesaler_Batch_Import {
 
         if ( empty( $product_ids ) ) {
             return [
-                'success' => true,
-                'message' => 'No products found to delete',
-                'deleted_count' => 0,
-                'images_deleted' => 0,
+                'success'            => true,
+                'message'            => 'No products found to delete',
+                'deleted_count'      => 0,
+                'images_deleted'     => 0,
                 'variations_deleted' => 0,
-                'processing_time' => 0
+                'processing_time'    => 0,
             ];
         }
 
-        $deleted_products = 0;
-        $deleted_images = 0;
+        $deleted_products   = 0;
+        $deleted_images     = 0;
         $deleted_variations = 0;
-        $errors = [];
+        $errors             = [];
 
         // Separate main products from variations
         $main_products = [];
-        $variations = [];
-        
+        $variations    = [];
+
         foreach ( $product_ids as $product_id ) {
             $post_type = get_post_type( $product_id );
             if ( $post_type === 'product' ) {
@@ -1567,14 +1816,14 @@ class Wholesaler_Batch_Import {
             }
 
             // 2. Delete variations first
-            if ( ! empty( $variations ) ) {
+            if ( !empty( $variations ) ) {
                 $deleted_variations = $this->bulk_delete_variations( $variations );
             }
 
             // 3. Get all child variations for main products and delete them
-            if ( ! empty( $main_products ) ) {
+            if ( !empty( $main_products ) ) {
                 $child_variations = $this->get_all_child_variations( $main_products );
-                if ( ! empty( $child_variations ) ) {
+                if ( !empty( $child_variations ) ) {
                     if ( $delete_images ) {
                         $deleted_images += $this->bulk_delete_product_images( $child_variations );
                     }
@@ -1596,26 +1845,26 @@ class Wholesaler_Batch_Import {
                 $this->disable_performance_mode();
             }
 
-            $end_time = microtime( true );
+            $end_time        = microtime( true );
             $processing_time = $end_time - $start_time;
 
             return [
-                'success' => true,
-                'message' => sprintf( 
-                    'Bulk delete completed. Deleted %d products, %d variations, %d images in %.2f seconds', 
-                    $deleted_products, 
-                    $deleted_variations, 
-                    $deleted_images, 
-                    $processing_time 
+                'success'            => true,
+                'message'            => sprintf(
+                    'Bulk delete completed. Deleted %d products, %d variations, %d images in %.2f seconds',
+                    $deleted_products,
+                    $deleted_variations,
+                    $deleted_images,
+                    $processing_time
                 ),
-                'deleted_count' => $deleted_products,
+                'deleted_count'      => $deleted_products,
                 'variations_deleted' => $deleted_variations,
-                'images_deleted' => $deleted_images,
-                'processing_time' => round( $processing_time, 3 ),
-                'errors' => $errors
+                'images_deleted'     => $deleted_images,
+                'processing_time'    => round( $processing_time, 3 ),
+                'errors'             => $errors,
             ];
 
-        } catch ( Exception $e ) {
+        } catch (Exception $e) {
             if ( $cleanup_database ) {
                 $this->disable_performance_mode();
             }
@@ -1632,10 +1881,10 @@ class Wholesaler_Batch_Import {
         }
 
         global $wpdb;
-        
+
         // Get all image IDs associated with these products
         $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
-        
+
         // Get featured images
         $featured_images = $wpdb->get_col( $wpdb->prepare(
             "SELECT meta_value FROM {$wpdb->postmeta} 
@@ -1657,17 +1906,17 @@ class Wholesaler_Batch_Import {
         // Parse gallery image IDs
         $all_gallery_ids = [];
         foreach ( $gallery_images as $gallery_string ) {
-            $ids = explode( ',', $gallery_string );
+            $ids             = explode( ',', $gallery_string );
             $all_gallery_ids = array_merge( $all_gallery_ids, array_filter( $ids ) );
         }
 
         // Combine all image IDs
         $all_image_ids = array_unique( array_merge( $featured_images, $all_gallery_ids ) );
-        
+
         // Delete images in chunks to avoid memory issues
         $deleted_count = 0;
-        $chunk_size = 50;
-        
+        $chunk_size    = 50;
+
         foreach ( array_chunk( $all_image_ids, $chunk_size ) as $chunk ) {
             foreach ( $chunk as $image_id ) {
                 if ( wp_delete_attachment( $image_id, true ) ) {
@@ -1688,9 +1937,9 @@ class Wholesaler_Batch_Import {
         }
 
         global $wpdb;
-        
+
         $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
-        
+
         return $wpdb->get_col( $wpdb->prepare(
             "SELECT ID FROM {$wpdb->posts} 
              WHERE post_parent IN ($placeholders) 
@@ -1708,9 +1957,9 @@ class Wholesaler_Batch_Import {
         }
 
         global $wpdb;
-        
+
         $placeholders = implode( ',', array_fill( 0, count( $variation_ids ), '%d' ) );
-        
+
         // Delete variation posts
         $deleted = $wpdb->query( $wpdb->prepare(
             "DELETE FROM {$wpdb->posts} WHERE ID IN ($placeholders)",
@@ -1729,9 +1978,9 @@ class Wholesaler_Batch_Import {
         }
 
         global $wpdb;
-        
+
         $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
-        
+
         // Delete product posts
         $deleted = $wpdb->query( $wpdb->prepare(
             "DELETE FROM {$wpdb->posts} WHERE ID IN ($placeholders)",
@@ -1750,7 +1999,7 @@ class Wholesaler_Batch_Import {
         }
 
         global $wpdb;
-        
+
         $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
 
         // Clean up postmeta
@@ -1795,24 +2044,24 @@ class Wholesaler_Batch_Import {
         global $wpdb;
 
         // Clean up orphaned postmeta
-        $wpdb->query( 
+        $wpdb->query(
             "DELETE pm FROM {$wpdb->postmeta} pm 
              LEFT JOIN {$wpdb->posts} p ON pm.post_id = p.ID 
-             WHERE p.ID IS NULL" 
+             WHERE p.ID IS NULL"
         );
 
         // Clean up orphaned term relationships
-        $wpdb->query( 
+        $wpdb->query(
             "DELETE tr FROM {$wpdb->term_relationships} tr 
              LEFT JOIN {$wpdb->posts} p ON tr.object_id = p.ID 
-             WHERE p.ID IS NULL" 
+             WHERE p.ID IS NULL"
         );
 
         // Clean up orphaned comments
-        $wpdb->query( 
+        $wpdb->query(
             "DELETE c FROM {$wpdb->comments} c 
              LEFT JOIN {$wpdb->posts} p ON c.comment_post_ID = p.ID 
-             WHERE p.ID IS NULL" 
+             WHERE p.ID IS NULL"
         );
 
         // Update term counts
@@ -1829,47 +2078,47 @@ class Wholesaler_Batch_Import {
      */
     public function get_background_job_status( WP_REST_Request $request ) {
         $job_id = $request->get_param( 'job_id' );
-        
+
         global $wpdb;
         $table_name = $wpdb->prefix . 'wholesaler_background_jobs';
-        
+
         $job = $wpdb->get_row( $wpdb->prepare(
             "SELECT * FROM {$table_name} WHERE id = %d",
             $job_id
         ) );
-        
-        if ( ! $job ) {
+
+        if ( !$job ) {
             return new WP_REST_Response( [
                 'success' => false,
-                'message' => 'Job not found'
+                'message' => 'Job not found',
             ], 404 );
         }
-        
-        $job_data = json_decode( $job->job_data, true );
+
+        $job_data       = json_decode( $job->job_data, true );
         $error_messages = $job->error_messages ? json_decode( $job->error_messages, true ) : [];
-        
+
         return new WP_REST_Response( [
             'success' => true,
-            'job' => [
-                'id' => $job->id,
-                'status' => $job->status,
-                'progress' => $job->progress,
+            'job'     => [
+                'id'              => $job->id,
+                'status'          => $job->status,
+                'progress'        => $job->progress,
                 'total_processed' => $job->total_processed,
-                'total_created' => $job->total_created,
-                'total_updated' => $job->total_updated,
-                'total_errors' => $job->total_errors,
-                'error_messages' => $error_messages,
-                'started_at' => $job->started_at,
-                'completed_at' => $job->completed_at,
-                'created_at' => $job->created_at,
+                'total_created'   => $job->total_created,
+                'total_updated'   => $job->total_updated,
+                'total_errors'    => $job->total_errors,
+                'error_messages'  => $error_messages,
+                'started_at'      => $job->started_at,
+                'completed_at'    => $job->completed_at,
+                'created_at'      => $job->created_at,
                 'estimated_total' => $job_data['total_batches'] * $job_data['products_per_batch'],
-                'configuration' => [
-                    'total_batches' => $job_data['total_batches'],
+                'configuration'   => [
+                    'total_batches'      => $job_data['total_batches'],
                     'products_per_batch' => $job_data['products_per_batch'],
-                    'process_images' => $job_data['process_images'],
-                    'update_existing' => $job_data['update_existing']
-                ]
-            ]
+                    'process_images'     => $job_data['process_images'],
+                    'update_existing'    => $job_data['update_existing'],
+                ],
+            ],
         ], 200 );
     }
 
@@ -1878,49 +2127,49 @@ class Wholesaler_Batch_Import {
      */
     public function get_background_jobs_list( WP_REST_Request $request ) {
         $status = $request->get_param( 'status' );
-        $limit = $request->get_param( 'limit' );
-        
+        $limit  = $request->get_param( 'limit' );
+
         global $wpdb;
         $table_name = $wpdb->prefix . 'wholesaler_background_jobs';
-        
+
         $where_clause = '';
-        $params = [];
-        
+        $params       = [];
+
         if ( $status !== 'all' ) {
             $where_clause = 'WHERE status = %s';
-            $params[] = $status;
+            $params[]     = $status;
         }
-        
+
         $params[] = $limit;
-        
+
         $jobs = $wpdb->get_results( $wpdb->prepare(
             "SELECT * FROM {$table_name} {$where_clause} ORDER BY created_at DESC LIMIT %d",
             ...$params
         ) );
-        
+
         $formatted_jobs = [];
         foreach ( $jobs as $job ) {
-            $job_data = json_decode( $job->job_data, true );
+            $job_data       = json_decode( $job->job_data, true );
             $error_messages = $job->error_messages ? json_decode( $job->error_messages, true ) : [];
-            
+
             $formatted_jobs[] = [
-                'id' => $job->id,
-                'status' => $job->status,
-                'progress' => $job->progress,
+                'id'              => $job->id,
+                'status'          => $job->status,
+                'progress'        => $job->progress,
                 'total_processed' => $job->total_processed,
-                'total_created' => $job->total_created,
-                'total_updated' => $job->total_updated,
-                'total_errors' => $job->total_errors,
-                'error_count' => count( $error_messages ),
-                'started_at' => $job->started_at,
-                'completed_at' => $job->completed_at,
-                'created_at' => $job->created_at,
+                'total_created'   => $job->total_created,
+                'total_updated'   => $job->total_updated,
+                'total_errors'    => $job->total_errors,
+                'error_count'     => count( $error_messages ),
+                'started_at'      => $job->started_at,
+                'completed_at'    => $job->completed_at,
+                'created_at'      => $job->created_at,
                 'estimated_total' => $job_data['total_batches'] * $job_data['products_per_batch'],
-                'duration' => $job->completed_at && $job->started_at ? 
+                'duration'        => $job->completed_at && $job->started_at ?
                     strtotime( $job->completed_at ) - strtotime( $job->started_at ) : null
             ];
         }
-        
+
         // Get summary statistics
         $stats = $wpdb->get_row(
             "SELECT 
@@ -1935,15 +2184,15 @@ class Wholesaler_Batch_Import {
              FROM {$table_name}",
             ARRAY_A
         );
-        
+
         return new WP_REST_Response( [
             'success' => true,
-            'jobs' => $formatted_jobs,
-            'stats' => $stats,
-            'filter' => [
+            'jobs'    => $formatted_jobs,
+            'stats'   => $stats,
+            'filter'  => [
                 'status' => $status,
-                'limit' => $limit
-            ]
+                'limit'  => $limit,
+            ],
         ], 200 );
     }
 }
@@ -1958,54 +2207,54 @@ if ( !empty( $consumer_key ) && !empty( $consumer_secret ) ) {
 }
 
 // Register background import hook
-add_action( 'wholesaler_background_import', function( $job_id, $job_data ) {
-    $batch_import = new Wholesaler_Batch_Import( 
-        site_url(), 
-        get_option( 'wholesaler_consumer_key', '' ), 
-        get_option( 'wholesaler_consumer_secret', '' ) 
+add_action( 'wholesaler_background_import', function ( $job_id, $job_data ) {
+    $batch_import = new Wholesaler_Batch_Import(
+        site_url(),
+        get_option( 'wholesaler_consumer_key', '' ),
+        get_option( 'wholesaler_consumer_secret', '' )
     );
-    
+
     $batch_import->process_background_job( $job_id, $job_data );
 }, 10, 2 );
 
 // Register stuck job checker hook
-add_action( 'wholesaler_check_stuck_jobs', function() {
-    $batch_import = new Wholesaler_Batch_Import( 
-        site_url(), 
-        get_option( 'wholesaler_consumer_key', '' ), 
-        get_option( 'wholesaler_consumer_secret', '' ) 
+add_action( 'wholesaler_check_stuck_jobs', function () {
+    $batch_import = new Wholesaler_Batch_Import(
+        site_url(),
+        get_option( 'wholesaler_consumer_key', '' ),
+        get_option( 'wholesaler_consumer_secret', '' )
     );
-    
+
     $batch_import->check_stuck_jobs();
 } );
 
 // Add custom cron schedule for every minute
-add_filter( 'cron_schedules', function( $schedules ) {
+add_filter( 'cron_schedules', function ( $schedules ) {
     $schedules['every_minute'] = [
         'interval' => 60,
-        'display'  => __( 'Every Minute' )
+        'display'  => __( 'Every Minute' ),
     ];
     return $schedules;
 } );
 
 // Manual trigger endpoint for testing
-add_action( 'rest_api_init', function() {
+add_action( 'rest_api_init', function () {
     register_rest_route( 'wholesaler/v1', '/trigger-stuck-jobs', [
-        'methods' => 'POST',
-        'callback' => function() {
-            $batch_import = new Wholesaler_Batch_Import( 
-                site_url(), 
-                get_option( 'wholesaler_consumer_key', '' ), 
-                get_option( 'wholesaler_consumer_secret', '' ) 
+        'methods'             => 'POST',
+        'callback'            => function () {
+            $batch_import = new Wholesaler_Batch_Import(
+                site_url(),
+                get_option( 'wholesaler_consumer_key', '' ),
+                get_option( 'wholesaler_consumer_secret', '' )
             );
-            
+
             $batch_import->check_stuck_jobs();
-            
+
             return new WP_REST_Response( [
                 'success' => true,
-                'message' => 'Stuck jobs check triggered'
+                'message' => 'Stuck jobs check triggered',
             ], 200 );
         },
-        'permission_callback' => '__return_true'
+        'permission_callback' => '__return_true',
     ] );
 } );
