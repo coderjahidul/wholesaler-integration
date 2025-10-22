@@ -1287,7 +1287,7 @@ class Wholesaler_Batch_Import {
                 $mapped_product = $this->map_product_data( $product->wholesaler_name, $product );
                 $existing_id    = $existing_products[$mapped_product['sku']] ?? null;
 
-                put_program_logs( 'category: ' . json_encode( $mapped_product['category_terms'] ) );
+                // put_program_logs( 'category: ' . json_encode( $mapped_product['category_terms'] ) );
 
                 // Skip products with excluded categories
                 if ( $this->has_excluded_category( $mapped_product ) ) {
@@ -1295,12 +1295,14 @@ class Wholesaler_Batch_Import {
                     $category_names        = array_map( function ( $cat ) {
                         return $cat['name'] ?? '';
                     }, $mapped_product['category_terms'] ?? [] );
-                    put_program_logs( sprintf(
-                        'Skipping product %s (SKU: %s) - excluded category: %s',
-                        $mapped_product['name'] ?? 'N/A',
-                        $mapped_product['sku'] ?? 'N/A',
-                        implode( ', ', $category_names )
-                    ) );
+
+                    // put_program_logs( sprintf(
+                    //     'Skipping product %s (SKU: %s) - excluded category: %s',
+                    //     $mapped_product['name'] ?? 'N/A',
+                    //     $mapped_product['sku'] ?? 'N/A',
+                    //     implode( ', ', $category_names )
+                    // ) );
+
                     continue; // Skip to next product
                 }
 
