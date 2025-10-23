@@ -1289,29 +1289,42 @@ class Wholesaler_Batch_Import {
 
                 // put_program_logs( 'category: ' . json_encode( $mapped_product['category_terms'] ) );
 
-                // Skip products with excluded categories
-                if ( $this->has_excluded_category( $mapped_product ) ) {
+                // Check if product should be skipped due to category exclusion
+                $is_skipped = $this->has_excluded_category( $mapped_product );
+                
+                if ( $is_skipped ) {
                     $skipped_product_ids[] = $product->id;
                     $category_names        = array_map( function ( $cat ) {
                         return $cat['name'] ?? '';
                     }, $mapped_product['category_terms'] ?? [] );
 
-                    // put_program_logs( sprintf(
-                    //     'Skipping product %s (SKU: %s) - excluded category: %s',
-                    //     $mapped_product['name'] ?? 'N/A',
-                    //     $mapped_product['sku'] ?? 'N/A',
-                    //     implode( ', ', $category_names )
-                    // ) );
+                    put_program_logs( sprintf(
+                        'Skipping product %s (SKU: %s) - excluded category: %s',
+                        $mapped_product['name'] ?? 'N/A',
+                        $mapped_product['sku'] ?? 'N/A',
+                        implode( ', ', $category_names )
+                    ) );
 
+                    // Still collect image data but mark as skipped for processing check
+                    if ( !empty( $mapped_product['images_payload'] ) ) {
+                        $products_with_images[] = [
+                            'product_id'       => $existing_id ?: 'new',
+                            'images'           => $mapped_product['images_payload'],
+                            'original_product' => $product,
+                            'is_skipped'       => true,
+                        ];
+                    }
+                    
                     continue; // Skip to next product
                 }
 
-                // Collect products with images for later processing
+                // Collect products with images for later processing (non-skipped products)
                 if ( !empty( $mapped_product['images_payload'] ) ) {
                     $products_with_images[] = [
                         'product_id'       => $existing_id ?: 'new',
                         'images'           => $mapped_product['images_payload'],
                         'original_product' => $product,
+                        'is_skipped'       => false,
                     ];
                 }
 
@@ -1619,6 +1632,11 @@ class Wholesaler_Batch_Import {
         // put_program_logs("schedule bulk image processing data: " . json_encode( $products_with_images ) );
 
         foreach ( $products_with_images as $image_data ) {
+            // Skip products that were marked as skipped due to category exclusion
+            if ( isset( $image_data['is_skipped'] ) && $image_data['is_skipped'] === true ) {
+                continue; // Skip processing images for excluded products
+            }
+            
             if ( $image_data['product_id'] !== 'new' && !empty( $image_data['images'] ) ) {
 
                 // Check if product already has images to prevent duplicates
