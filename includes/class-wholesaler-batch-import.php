@@ -607,13 +607,15 @@ class Wholesaler_Batch_Import {
 
         $placeholders = implode( ',', array_fill( 0, count( $skus ), '%s' ) );
 
+        // First, try to find products using postmeta (standard WooCommerce method)
         $query = $wpdb->prepare(
             "SELECT pm.meta_value as sku, p.ID as product_id 
              FROM {$wpdb->postmeta} pm 
              INNER JOIN {$wpdb->posts} p ON pm.post_id = p.ID 
              WHERE pm.meta_key = '_sku' 
              AND pm.meta_value IN ($placeholders) 
-             AND p.post_type = 'product'",
+             AND p.post_type = 'product'
+             AND p.post_status != 'trash'",
             ...$skus
         );
 
@@ -624,6 +626,31 @@ class Wholesaler_Batch_Import {
             $existing_products[$result->sku] = (int) $result->product_id;
         }
 
+        // If we didn't find all products, also check the WooCommerce lookup table as fallback
+        $found_skus = array_keys( $existing_products );
+        $missing_skus = array_diff( $skus, $found_skus );
+        
+        if ( !empty( $missing_skus ) ) {
+            put_program_logs( "Checking WooCommerce lookup table for missing SKUs: " . implode( ', ', $missing_skus ) );
+            
+            $lookup_placeholders = implode( ',', array_fill( 0, count( $missing_skus ), '%s' ) );
+            $lookup_query = $wpdb->prepare(
+                "SELECT sku, product_id 
+                 FROM {$wpdb->prefix}wc_product_meta_lookup 
+                 WHERE sku IN ($lookup_placeholders)",
+                ...$missing_skus
+            );
+            
+            $lookup_results = $wpdb->get_results( $lookup_query );
+            
+            foreach ( $lookup_results as $result ) {
+                $existing_products[$result->sku] = (int) $result->product_id;
+                put_program_logs( "Found existing product via lookup table: SKU {$result->sku} -> ID {$result->product_id}" );
+            }
+        }
+
+        put_program_logs( "Found " . count( $existing_products ) . " existing products out of " . count( $skus ) . " checked" );
+        
         return $existing_products;
     }
 
@@ -900,6 +927,32 @@ class Wholesaler_Batch_Import {
         ) );
 
         put_program_logs( "Marked " . count( $product_ids ) . " products as SKIPPED in database" );
+        
+        return $result !== false;
+    }
+
+    /**
+     * Mark a single product as failed in database
+     */
+    private function mark_product_as_failed( $product_id, $error_message ) {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
+
+        $result = $wpdb->update(
+            $table_name,
+            [
+                'status' => Status_Enum::FAILED->value,
+                'error_message' => $error_message,
+                'updated_at' => current_time( 'mysql' )
+            ],
+            [ 'id' => $product_id ],
+            [ '%s', '%s', '%s' ],
+            [ '%d' ]
+        );
+
+        if ( $result !== false ) {
+            put_program_logs( "Marked product ID {$product_id} as FAILED: {$error_message}" );
+        }
         
         return $result !== false;
     }
@@ -1508,6 +1561,11 @@ class Wholesaler_Batch_Import {
                         $error_msg = "Failed to create product: " . ( $result->error->message ?? 'Unknown error' );
                         $errors[] = $error_msg;
                         put_program_logs( $error_msg . " - SKU: " . ( $create_batch[$index]['data']['sku'] ?? 'unknown' ) );
+                        
+                        // If it's a duplicate SKU error, mark the product as failed in database
+                        if ( strpos( $error_msg, 'already present in the lookup table' ) !== false ) {
+                            $this->mark_product_as_failed( $create_batch[$index]['original']->id, $error_msg );
+                        }
                     }
                 }
             } else {
