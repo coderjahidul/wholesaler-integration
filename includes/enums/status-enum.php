@@ -6,4 +6,5 @@ enum Status_Enum: string {
     case PENDING   = 'Pending';
     case COMPLETED = 'Completed';
     case FAILED    = 'Failed';
+    case SKIPPED   = 'Skipped';
 }

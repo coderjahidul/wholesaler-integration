@@ -16,7 +16,7 @@
  * Plugin Name:       Wholesaler Integration
  * Plugin URI:        https://https://github.com/coderjahidul/wholesaler-integration
  * Description:       Sync products/stock/prices from JS, MADA, AREN wholesalers to WooCommerce.
- * Version:           1.2.1
+ * Version:           2.0.0
  * Author:            Sujon
  * Author URI:        https://github.com/mtmsujan
  * License:           GPL-2.0+

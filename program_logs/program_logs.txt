@@ -1,0 +1,24 @@
+Skipping product Figi Eldar Vanda S-XL (SKU: 5363) - excluded category: Bielizna damska, bielizna korygująca, figi - 2025-10-23 06:58:19
+
+Skipping product Skarpetki Gatta Tan wz.1 kabaretka (SKU: 5439) - excluded category: Skarpety, damskie, kabaretka - 2025-10-23 06:58:19
+
+Marked 2 products as SKIPPED in database - 2025-10-23 06:58:19
+
+Skipping product Figi Lama Manuela S-M A'6 (SKU: 5445) - excluded category: Bielizna damska, majtki, figi - 2025-10-23 07:00:06
+
+Skipping product Figi Lama Manuela L-XL A'6 (SKU: 5446) - excluded category: Bielizna damska, majtki, figi - 2025-10-23 07:00:06
+
+Marked 2 products as SKIPPED in database - 2025-10-23 07:00:06
+
+Skipping product Figi Lama Manuela 2XL A'6 (SKU: 5447) - excluded category: Bielizna damska, majtki, figi - 2025-10-23 07:00:20
+
+Skipping product Figi Eldar Vivien 2XL-3XL (SKU: 5491) - excluded category: Bielizna damska, bielizna korygująca, figi - 2025-10-23 07:00:20
+
+Marked 2 products as SKIPPED in database - 2025-10-23 07:00:20
+
+Skipping product Stopki Steven art.045 38-46 (SKU: 5527) - excluded category: Stopki, zakostki, męskie - 2025-10-23 07:00:22
+
+Skipping product Stopki Steven art.094 Natural Bambus 35-46 (SKU: 5542) - excluded category: Stopki, zakostki, damskie - 2025-10-23 07:00:22
+
+Marked 2 products as SKIPPED in database - 2025-10-23 07:00:22
+

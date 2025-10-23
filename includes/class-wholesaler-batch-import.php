@@ -217,16 +217,18 @@ class Wholesaler_Batch_Import {
 
     public function __construct( string $website_url, string $consumer_key, string $consumer_secret ) {
 
-        // Set up the API client with optimized settings
+        // Set up the API client with optimized settings for live server
         $this->client = new Client(
             $website_url,
             $consumer_key,
             $consumer_secret,
             [
-                'verify_ssl' => false,
-                'wp_api'     => true,
-                'version'    => 'wc/v3',
-                'timeout'    => 300, // Increased timeout for batch operations
+                'verify_ssl'     => false,
+                'wp_api'         => true,
+                'version'        => 'wc/v3',
+                'timeout'        => 600, // Increased timeout for live server
+                'query_string_auth' => true, // Use query string auth for better compatibility
+                'user_agent'     => 'WholesalerIntegration/1.0',
             ]
         );
 
@@ -459,21 +461,20 @@ class Wholesaler_Batch_Import {
                 $mapped_product = $this->map_product_data( $product->wholesaler_name, $product );
                 $existing_id    = $existing_products[$mapped_product['sku']] ?? null;
 
-                put_program_logs( 'category: ' . $mapped_product['category_terms'] );
-                update_option( 'sync_category_term', $mapped_product['category_terms'] );
-
                 // Skip products with excluded categories
                 if ( $this->has_excluded_category( $mapped_product ) ) {
                     $skipped_product_ids[] = $product->id;
                     $category_names        = array_map( function ( $cat ) {
                         return $cat['name'] ?? '';
                     }, $mapped_product['category_terms'] ?? [] );
+
                     put_program_logs( sprintf(
                         'Skipping product %s (SKU: %s) - excluded category: %s',
                         $mapped_product['name'] ?? 'N/A',
                         $mapped_product['sku'] ?? 'N/A',
                         implode( ', ', $category_names )
                     ) );
+                    
                     continue; // Skip to next product
                 }
 
@@ -512,8 +513,26 @@ class Wholesaler_Batch_Import {
                 $results['errors']  = array_merge( $results['errors'], $update_result['errors'] );
             }
 
-            // Bulk update database status
-            $this->bulk_mark_as_complete( array_column( $products, 'id' ) );
+            // Mark successfully processed products as complete
+            $successfully_processed_ids = [];
+            foreach ( $products as $product ) {
+                $mapped_product = $this->map_product_data( $product->wholesaler_name, $product );
+                
+                // Only mark as complete if product was actually processed (not skipped)
+                if ( !$this->has_excluded_category( $mapped_product ) ) {
+                    $successfully_processed_ids[] = $product->id;
+                }
+            }
+            
+            // Bulk update database status for successfully processed products
+            if ( !empty( $successfully_processed_ids ) ) {
+                $this->bulk_mark_as_complete( $successfully_processed_ids );
+            }
+            
+            // Mark skipped products as SKIPPED to prevent them from being processed again
+            if ( !empty( $skipped_product_ids ) ) {
+                $this->bulk_mark_as_skipped( $skipped_product_ids );
+            }
 
             // Collect products with images for automatic processing
             $products_with_images = [];
@@ -859,6 +878,30 @@ class Wholesaler_Batch_Import {
             Status_Enum::COMPLETED->value,
             ...$product_ids
         ) );
+    }
+
+    /**
+     * Bulk mark products as skipped in database
+     */
+    private function bulk_mark_as_skipped( $product_ids ) {
+        if ( empty( $product_ids ) ) {
+            return;
+        }
+
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'sync_wholesaler_products_data';
+
+        $placeholders = implode( ',', array_fill( 0, count( $product_ids ), '%d' ) );
+
+        $result = $wpdb->query( $wpdb->prepare(
+            "UPDATE {$table_name} SET status = %s WHERE id IN ({$placeholders})",
+            Status_Enum::SKIPPED->value,
+            ...$product_ids
+        ) );
+
+        put_program_logs( "Marked " . count( $product_ids ) . " products as SKIPPED in database" );
+        
+        return $result !== false;
     }
 
     /**
@@ -1376,8 +1419,27 @@ class Wholesaler_Batch_Import {
                 $results['errors']  = array_merge( $results['errors'], $update_result['errors'] );
             }
 
-            // Bulk update database status (includes skipped products)
-            $this->bulk_mark_as_complete( array_column( $products, 'id' ) );
+            // Mark successfully processed products as complete
+            $successfully_processed_ids = [];
+            foreach ( $products as $product ) {
+                $mapped_product = $this->map_product_data( $product->wholesaler_name, $product );
+                $existing_id    = $existing_products[$mapped_product['sku']] ?? null;
+                
+                // Only mark as complete if product was actually processed (not skipped)
+                if ( !$this->has_excluded_category( $mapped_product ) ) {
+                    $successfully_processed_ids[] = $product->id;
+                }
+            }
+            
+            // Bulk update database status for successfully processed products
+            if ( !empty( $successfully_processed_ids ) ) {
+                $this->bulk_mark_as_complete( $successfully_processed_ids );
+            }
+            
+            // Mark skipped products as SKIPPED to prevent them from being processed again
+            if ( !empty( $skipped_product_ids ) ) {
+                $this->bulk_mark_as_skipped( $skipped_product_ids );
+            }
 
             return [
                 'success'              => true,
@@ -1415,17 +1477,21 @@ class Wholesaler_Batch_Import {
         $created_products = [];
 
         try {
+            put_program_logs( "Attempting to create " . count( $create_batch ) . " products via batch API" );
+            
             $response = $this->client->post( 'products/batch', $batch_data );
 
             if ( isset( $response->create ) ) {
                 foreach ( $response->create as $index => $result ) {
-                    if ( isset( $result->id ) ) {
+                    if ( isset( $result->id ) && $result->id > 0 ) {
                         $success_count++;
                         $created_products[] = [
                             'wc_id'          => $result->id,
                             'original_index' => $index,
                             'sku'            => $create_batch[$index]['data']['sku'],
                         ];
+
+                        put_program_logs( "Successfully created product ID: {$result->id} for SKU: " . $create_batch[$index]['data']['sku'] );
 
                         // Handle variations for created products with enhanced variation support
                         $original_product = $create_batch[$index]['original'];
@@ -1439,13 +1505,24 @@ class Wholesaler_Batch_Import {
                         $this->helpers->update_product_taxonomies( $result->id, $mapped_product );
 
                     } else {
-                        $errors[] = "Failed to create product: " . ( $result->error->message ?? 'Unknown error' );
+                        $error_msg = "Failed to create product: " . ( $result->error->message ?? 'Unknown error' );
+                        $errors[] = $error_msg;
+                        put_program_logs( $error_msg . " - SKU: " . ( $create_batch[$index]['data']['sku'] ?? 'unknown' ) );
                     }
                 }
+            } else {
+                $errors[] = "No create results returned from API";
+                put_program_logs( "API response did not contain 'create' results: " . json_encode( $response ) );
             }
 
         } catch (HttpClientException $e) {
-            $errors[] = "Batch create API error: " . $e->getMessage();
+            $error_msg = "Batch create API error: " . $e->getMessage();
+            $errors[] = $error_msg;
+            put_program_logs( $error_msg );
+        } catch (Exception $e) {
+            $error_msg = "Unexpected error during batch create: " . $e->getMessage();
+            $errors[] = $error_msg;
+            put_program_logs( $error_msg );
         }
 
         return [
@@ -1634,16 +1711,25 @@ class Wholesaler_Batch_Import {
         foreach ( $products_with_images as $image_data ) {
             // Skip products that were marked as skipped due to category exclusion
             if ( isset( $image_data['is_skipped'] ) && $image_data['is_skipped'] === true ) {
+                put_program_logs( "Skipping image processing for excluded product: " . ( $image_data['original_product']->sku ?? 'unknown' ) );
                 continue; // Skip processing images for excluded products
             }
             
-            if ( $image_data['product_id'] !== 'new' && !empty( $image_data['images'] ) ) {
+            // Only process images for products that actually exist and have valid product IDs
+            if ( $image_data['product_id'] !== 'new' && 
+                 is_numeric( $image_data['product_id'] ) && 
+                 $image_data['product_id'] > 0 && 
+                 !empty( $image_data['images'] ) ) {
+
+                // Verify product actually exists before processing images
+                if ( !$this->product_exists( $image_data['product_id'] ) ) {
+                    put_program_logs( "Product ID {$image_data['product_id']} does not exist, skipping image processing" );
+                    continue;
+                }
 
                 // Check if product already has images to prevent duplicates
                 if ( $this->product_has_images( $image_data['product_id'] ) ) {
-                    // log the product has images data
-                    // put_program_logs("product has images data: " . json_encode( $image_data['product_id'] ) );
-
+                    put_program_logs( "Product ID {$image_data['product_id']} already has images, skipping" );
                     continue; // Skip if product already has images
                 }
 
@@ -1663,20 +1749,42 @@ class Wholesaler_Batch_Import {
                     // put_program_logs("new image urls data: " . json_encode( $new_image_urls ) );
 
                     if ( !empty( $new_image_urls ) ) {
-                        // Schedule image processing with a small delay
-
-                        wp_schedule_single_event( time() + rand( 30, 120 ), 'wholesaler_process_images_batch', [
+                        // Schedule image processing with a small delay and better error handling
+                        $scheduled = wp_schedule_single_event( time() + rand( 30, 120 ), 'wholesaler_process_images_batch', [
                             [
                                 'product_id'    => $image_data['product_id'],
                                 'images'        => $new_image_urls,
                                 'batch_index'   => 0,
                                 'total_batches' => 1,
+                                'attempt_count' => 1, // Track attempts to prevent infinite loops
                             ],
                         ] );
+                        
+                        if ( $scheduled ) {
+                            put_program_logs( "Scheduled image processing for product ID: {$image_data['product_id']} with " . count( $new_image_urls ) . " images" );
+                        } else {
+                            put_program_logs( "Failed to schedule image processing for product ID: {$image_data['product_id']}" );
+                        }
+                    } else {
+                        put_program_logs( "No new images to process for product ID: {$image_data['product_id']}" );
                     }
                 }
             }
         }
+    }
+
+    /**
+     * Check if product exists in database
+     */
+    private function product_exists( $product_id ) {
+        global $wpdb;
+        
+        $exists = $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$wpdb->posts} WHERE ID = %d AND post_type = 'product' AND post_status != 'trash'",
+            $product_id
+        ) );
+        
+        return $exists > 0;
     }
 
     /**
